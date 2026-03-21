@@ -1,0 +1,25 @@
+name: Deploy Services
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Build Services
+        run: |
+          go build ./services/user
+          go build ./services/stream
+
+      - name: Build Docker
+        run: docker compose build

@@ -1,0 +1,107 @@
+version: "3.9"
+
+# ════════════════════════════════════════════════════════════════════════════
+# Sports Stream Backend — docker-compose.yml
+#
+# Usage:
+#   docker-compose up --build          → build and start all services
+#   docker-compose up user-service     → start only user-service
+#   docker-compose down                → stop all
+#
+# Environment:
+#   Copy .env.example to .env and fill in your values before running.
+#   GCP_PROJECT_ID and FIREBASE_CREDENTIALS are required.
+# ════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── user-service :8081 ─────────────────────────────────────────────────
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: user
+    image: sports-stream/user-service
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    environment:
+      PORT:                 "8081"
+      GCP_PROJECT_ID:       ${GCP_PROJECT_ID}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS}
+      ENV:                  production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── stream-service :8082 ───────────────────────────────────────────────
+  stream-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: stream
+    image: sports-stream/stream-service
+    container_name: stream-service
+    ports:
+      - "8082:8082"
+    environment:
+      PORT:                 "8082"
+      GCP_PROJECT_ID:       ${GCP_PROJECT_ID}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS}
+      GCS_BUCKET:           sports-stream-66553.appspot.com
+      CDN_BASE_URL:         https://storage.googleapis.com/sports-stream-66553.appspot.com
+      ENV:                  production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── analytics-service :8085 ────────────────────────────────────────────
+  analytics-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: analytics
+    image: sports-stream/analytics-service
+    container_name: analytics-service
+    ports:
+      - "8085:8085"
+      - "9090:9090"
+    environment:
+      PORT:                 "8085"
+      METRICS_PORT:         "9090"
+      GCP_PROJECT_ID:       ${GCP_PROJECT_ID}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS}
+      VIEWER_SUB:           viewer-events-analytics-sub
+      STREAM_SUB:           stream-events-analytics-sub
+      ENV:                  production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8085/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── notification-service (no HTTP port — Pub/Sub consumer only) ────────
+  notification-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: notification
+    image: sports-stream/notification-service
+    container_name: notification-service
+    environment:
+      GCP_PROJECT_ID:       ${GCP_PROJECT_ID}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS}
+      NOTIFICATION_SUB:     notification-events-sub
+      ENV:                  production
+    restart: unless-stopped
