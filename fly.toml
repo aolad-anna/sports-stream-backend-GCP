@@ -1,93 +1,17 @@
-# fly.toml — Sports Stream Backend
-# All 4 services in one Fly.io app using process groups
-# Deploy: flyctl deploy --app sports-stream-backend-staging
-
 app = 'sports-stream-backend-staging'
 primary_region = 'iad'
 
 [build]
-[build.args]
-SERVICE = "user"
 
-# ── Process definitions ───────────────────────────────────────────────
-[processes]
-user         = "./user-service"
-stream       = "./stream-service"
-analytics    = "./analytics-service"
-notification = "./notification-service"
-
-# ── HTTP services ─────────────────────────────────────────────────────
-
-# user-service — handles auth and user profiles
-[[services]]
-processes    = ["user"]
-internal_port = 8081
-protocol     = "tcp"
-
-[[services.ports]]
-handlers = ["http"]
-port     = 80
-
-[[services.ports]]
-handlers = ["tls", "http"]
-port     = 443
-
-[services.concurrency]
-type       = "connections"
-hard_limit = 25
-soft_limit = 20
-
-# stream-service
-[[services]]
-processes     = ["stream"]
-internal_port = 8082
-protocol      = "tcp"
-
-[[services.ports]]
-handlers = ["tls", "http"]
-port     = 8443
-
-[services.concurrency]
-type       = "connections"
-hard_limit = 25
-soft_limit = 20
-
-# analytics-service
-[[services]]
-processes     = ["analytics"]
-internal_port = 8085
-protocol      = "tcp"
-
-[[services.ports]]
-handlers = ["tls", "http"]
-port     = 8085
-
-[services.concurrency]
-type       = "connections"
-hard_limit = 25
-soft_limit = 20
-
-# ── VM sizes ──────────────────────────────────────────────────────────
-[[vm]]
-processes  = ["user"]
-memory     = "256mb"
-cpu_kind   = "shared"
-cpus       = 1
+[http_service]
+internal_port = 8080
+force_https = true
+auto_stop_machines = 'stop'
+auto_start_machines = true
+min_machines_running = 0
+processes = ['app']
 
 [[vm]]
-processes  = ["stream"]
-memory     = "512mb"
-cpu_kind   = "shared"
-cpus       = 1
-
-[[vm]]
-processes  = ["analytics"]
-memory     = "256mb"
-cpu_kind   = "shared"
-cpus       = 1
-
-[[vm]]
-processes  = ["notification"]
-memory     = "256mb"
-cpu_kind   = "shared"
-cpus       = 1
+memory = '512mb'
+cpu_kind = 'shared'
+cpus = 1
