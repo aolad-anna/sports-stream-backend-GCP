@@ -4,42 +4,49 @@ import (
 	"bufio"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 // init automatically loads .env file when any service starts.
-// This means you never need to set env vars in GoLand manually.
-// It looks for .env in the current directory and parent directories.
+// In Docker/Fly.io there is no .env file — env vars are injected directly.
+// In local GoLand the .env file is loaded from the project root.
 func init() {
 	loadDotEnv()
 }
 
 // loadDotEnv searches for a .env file starting from the current directory
-// and walking up to parent directories (max 5 levels).
+// walking up to parent directories safely using filepath.Dir.
 func loadDotEnv() {
-	dir, _ := os.Getwd()
+	dir, err := os.Getwd()
+	if err != nil {
+		return
+	}
 
 	for i := 0; i < 5; i++ {
-		path := dir + "/.env"
-		if _, err := os.Stat(path); err == nil {
-			if err := readEnvFile(path); err == nil {
+		path := filepath.Join(dir, ".env")
+		if _, statErr := os.Stat(path); statErr == nil {
+			if readErr := readEnvFile(path); readErr == nil {
 				log.Printf(`{"service":"env","level":"info","msg":".env loaded","path":%q}`, path)
-				return
 			}
+			return
 		}
-		// Go up one directory
-		parent := dir[:strings.LastIndex(dir, string(os.PathSeparator))]
+
+		// Go up one directory safely
+		parent := filepath.Dir(dir)
 		if parent == dir {
+			// Reached filesystem root — stop searching
 			break
 		}
 		dir = parent
 	}
+	// No .env found — perfectly fine in Docker/Fly.io/production
+	// env vars are injected directly by the platform
 }
 
 // readEnvFile reads a .env file and sets environment variables.
 // Skips comments (#) and empty lines.
-// Does NOT overwrite variables already set in the environment.
-// This means GoLand environment field values take priority over .env file.
+// Does NOT overwrite variables already set — platform-injected vars take priority.
 func readEnvFile(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -65,7 +72,7 @@ func readEnvFile(path string) error {
 		key := strings.TrimSpace(parts[0])
 		val := strings.TrimSpace(parts[1])
 
-		// Only set if not already set — GoLand env vars take priority
+		// Only set if not already set — injected env vars take priority
 		if os.Getenv(key) == "" {
 			os.Setenv(key, val)
 		}
