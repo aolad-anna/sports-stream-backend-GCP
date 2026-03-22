@@ -1,7 +1,5 @@
 # ════════════════════════════════════════════════════════════════════════════
-# Sports Stream Backend — Single container, pure Go
-# Builds all 5 binaries (4 services + 1 Go gateway)
-# No nginx — Go reverse proxy handles routing on :8080
+# Sports Stream Backend — Single container, pure Go + Go gateway
 # ════════════════════════════════════════════════════════════════════════════
 
 # ── Stage 1: Build all binaries ───────────────────────────────────────────
@@ -14,38 +12,28 @@ RUN go mod download
 
 COPY . .
 
-# Build all 4 services + gateway
-RUN go build -o user-service         ./services/user/main.go
-RUN go build -o stream-service       ./services/stream/main.go
-RUN go build -o analytics-service    ./services/analytics/main.go
-RUN go build -o notification-service ./services/notification/main.go
-RUN go build -o gateway              ./gateway/main.go
+# Build all binaries and set execute permission in builder stage
+RUN go build -o /bin/user-service         ./services/user/main.go         && chmod +x /bin/user-service
+RUN go build -o /bin/stream-service       ./services/stream/main.go       && chmod +x /bin/stream-service
+RUN go build -o /bin/analytics-service    ./services/analytics/main.go    && chmod +x /bin/analytics-service
+RUN go build -o /bin/notification-service ./services/notification/main.go && chmod +x /bin/notification-service
+RUN go build -o /bin/gateway              ./gateway/main.go               && chmod +x /bin/gateway
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────
 FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates ffmpeg
 
-WORKDIR /root/
+# Copy binaries from /bin — permissions are preserved
+COPY --from=builder /bin/user-service         /usr/local/bin/user-service
+COPY --from=builder /bin/stream-service       /usr/local/bin/stream-service
+COPY --from=builder /bin/analytics-service    /usr/local/bin/analytics-service
+COPY --from=builder /bin/notification-service /usr/local/bin/notification-service
+COPY --from=builder /bin/gateway              /usr/local/bin/gateway
 
-# Copy all binaries
-COPY --from=builder /app/user-service         ./user-service
-COPY --from=builder /app/stream-service       ./stream-service
-COPY --from=builder /app/analytics-service    ./analytics-service
-COPY --from=builder /app/notification-service ./notification-service
-COPY --from=builder /app/gateway              ./gateway
-
-# Copy startup script
-COPY start.sh ./start.sh
-
-# Make all binaries and script executable
-RUN chmod +x ./user-service \
-             ./stream-service \
-             ./analytics-service \
-             ./notification-service \
-             ./gateway \
-             ./start.sh
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 EXPOSE 8080
 
-CMD ["./start.sh"]
+CMD ["/usr/local/bin/start.sh"]
