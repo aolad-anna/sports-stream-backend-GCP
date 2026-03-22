@@ -1,6 +1,6 @@
 #!/bin/sh
-# start.sh — starts all 4 services + nginx
-# Runs inside the Docker container on Fly.io
+# start.sh — starts all 4 Go services + Go gateway
+# No nginx — pure Go reverse proxy handles routing
 
 echo "Starting Sports Stream Backend..."
 
@@ -20,9 +20,9 @@ echo "analytics-service started on :8085"
 ./notification-service &
 echo "notification-service started"
 
-# ── Wait for services to be ready ─────────────────────────────────────
-sleep 2
+# ── Wait for services to be ready ────────────────────────────────────
+sleep 3
 
-# ── Start nginx (foreground — keeps container alive) ──────────────────
-echo "Starting nginx on :8080..."
-nginx -g "daemon off;"
+# ── Start Go gateway on :8080 (foreground — keeps container alive) ───
+echo "Starting Go API Gateway on :8080..."
+GATEWAY_PORT=8080 ./gateway
