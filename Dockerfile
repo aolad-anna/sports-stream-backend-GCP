@@ -28,14 +28,23 @@ RUN apk --no-cache add ca-certificates ffmpeg
 
 WORKDIR /root/
 
+# Copy all binaries
 COPY --from=builder /app/user-service         ./user-service
 COPY --from=builder /app/stream-service       ./stream-service
 COPY --from=builder /app/analytics-service    ./analytics-service
 COPY --from=builder /app/notification-service ./notification-service
 COPY --from=builder /app/gateway              ./gateway
 
+# Copy startup script
 COPY start.sh ./start.sh
-RUN chmod +x ./start.sh
+
+# Make all binaries and script executable
+RUN chmod +x ./user-service \
+             ./stream-service \
+             ./analytics-service \
+             ./notification-service \
+             ./gateway \
+             ./start.sh
 
 EXPOSE 8080
 
