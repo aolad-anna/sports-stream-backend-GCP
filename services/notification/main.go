@@ -32,6 +32,7 @@ type NotificationEvent struct {
 // AndroidConfig.Priority = "high" wakes the device even in Doze mode.
 func sendToTopic(ctx context.Context, topic, title, body, streamID string) error {
 	msgClient, err := fbclient.GetApp().Messaging(ctx)
+
 	if err != nil {
 		return err
 	}
@@ -63,8 +64,8 @@ func sendToTopic(ctx context.Context, topic, title, body, streamID string) error
 func handleNotificationEvent(data []byte) bool {
 	var ev NotificationEvent
 	if err := json.Unmarshal(data, &ev); err != nil {
-		log.Printf("notification: bad payload: %v", err)
-		return false
+		log.Printf("notification: bad payload (acking to discard): %v", err)
+		return true // ack bad messages — don't retry garbage data
 	}
 
 	ctx := context.Background()
