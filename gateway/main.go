@@ -83,7 +83,11 @@ func newProxy(target string) *httputil.ReverseProxy {
 }
 
 func main() {
-	port := os.Getenv("GATEWAY_PORT")
+	// Scalingo injects PORT — must listen on it or app times out
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = os.Getenv("GATEWAY_PORT")
+	}
 	if port == "" {
 		port = "8080"
 	}
