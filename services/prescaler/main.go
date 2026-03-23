@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"time"
 
@@ -23,7 +24,6 @@ import (
 // Models
 // ────────────────────────────────────────────────────────────────────────────
 
-// Match matches the Firestore matches/{id} document.
 type Match struct {
 	ID          string    `firestore:"id"`
 	Title       string    `firestore:"title"`
@@ -32,14 +32,13 @@ type Match struct {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Firestore — upcoming match query
+// Firestore queries
 // ────────────────────────────────────────────────────────────────────────────
 
 // getUpcomingMatches returns matches starting within the next 15 minutes.
 func getUpcomingMatches(ctx context.Context, fs *firestore.Client) ([]Match, error) {
 	now := time.Now().UTC()
 	window := now.Add(15 * time.Minute)
-
 	docs, err := fs.Collection("matches").
 		Where("status", "==", "scheduled").
 		Where("scheduledAt", ">=", now).
@@ -48,7 +47,6 @@ func getUpcomingMatches(ctx context.Context, fs *firestore.Client) ([]Match, err
 	if err != nil {
 		return nil, err
 	}
-
 	matches := make([]Match, 0, len(docs))
 	for _, d := range docs {
 		var m Match
@@ -59,13 +57,95 @@ func getUpcomingMatches(ctx context.Context, fs *firestore.Client) ([]Match, err
 	return matches, nil
 }
 
+// getLiveViewers returns total viewers across all live streams.
+func getLiveViewers(ctx context.Context, fs *firestore.Client) (int, error) {
+	docs, err := fs.Collection("streams").
+		Where("status", "==", "live").
+		Documents(ctx).GetAll()
+	if err != nil {
+		return 0, err
+	}
+	total := 0
+	for _, d := range docs {
+		var s struct {
+			ViewerCount int `firestore:"viewerCount"`
+		}
+		if err := d.DataTo(&s); err == nil {
+			total += s.ViewerCount
+		}
+	}
+	return total, nil
+}
+
+// getNextScheduledMatch returns the very next match scheduled in the future.
+func getNextScheduledMatch(ctx context.Context, fs *firestore.Client) (*Match, error) {
+	docs, err := fs.Collection("matches").
+		Where("status", "==", "scheduled").
+		Where("scheduledAt", ">=", time.Now().UTC()).
+		OrderBy("scheduledAt", firestore.Asc).
+		Limit(1).
+		Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	if len(docs) == 0 {
+		return nil, nil
+	}
+	var m Match
+	docs[0].DataTo(&m)
+	return &m, nil
+}
+
 // ────────────────────────────────────────────────────────────────────────────
-// Kubernetes — patch stream-service replica count
+// Smart replica calculator — money-saving brain
 // ────────────────────────────────────────────────────────────────────────────
 
-// patchReplicas patches a Deployment's replica count using in-cluster config.
-// Works automatically when running as a Kubernetes CronJob pod.
-// Locally this will fail with "in-cluster config" error — that is expected.
+const viewersPerPod = 500
+
+func calculateOptimalReplicas(upcoming []Match, viewers int, next *Match) int32 {
+
+	// ── Case 1: Match starting in 15 min → pre-warm ───────────────────────
+	if len(upcoming) > 0 {
+		expected := len(upcoming) * 2000 // 2000 viewers per match estimate
+		pods := int(math.Ceil(float64(expected) / float64(viewersPerPod)))
+		if pods < 4 {
+			pods = 4
+		}
+		log.Printf(`{"service":"pre-scaler","msg":"pre-warming","matches":%d,"estimatedViewers":%d,"pods":%d}`,
+			len(upcoming), expected, pods)
+		return int32(pods)
+	}
+
+	// ── Case 2: Live viewers → scale to exact demand ───────────────────────
+	if viewers > 0 {
+		pods := int(math.Ceil(float64(viewers) / float64(viewersPerPod)))
+		if pods < 2 {
+			pods = 2 // minimum 2 pods for HA during live
+		}
+		log.Printf(`{"service":"pre-scaler","msg":"scale-to-demand","viewers":%d,"pods":%d}`,
+			viewers, pods)
+		return int32(pods)
+	}
+
+	// ── Case 3: Next match within 1 hour → keep 1 warm pod ────────────────
+	if next != nil {
+		hoursUntil := time.Until(next.ScheduledAt).Hours()
+		if hoursUntil <= 1 {
+			log.Printf(`{"service":"pre-scaler","msg":"standby","nextMatch":%q,"hoursUntil":%.1f,"pods":1}`,
+				next.Title, hoursUntil)
+			return 1
+		}
+	}
+
+	// ── Case 4: Nothing happening → SCALE TO ZERO 💰 ──────────────────────
+	log.Println(`{"service":"pre-scaler","msg":"scale-to-zero","cost":"$0"}`)
+	return 0
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Kubernetes patch
+// ────────────────────────────────────────────────────────────────────────────
+
 func patchReplicas(ctx context.Context, namespace, deployment string, replicas int32) error {
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -75,67 +155,62 @@ func patchReplicas(ctx context.Context, namespace, deployment string, replicas i
 	if err != nil {
 		return fmt.Errorf("k8s client: %w", err)
 	}
-
 	patch := map[string]any{"spec": map[string]any{"replicas": replicas}}
 	patchBytes, _ := json.Marshal(patch)
-
-	_, err = clientset.AppsV1().
-		Deployments(namespace).
+	_, err = clientset.AppsV1().Deployments(namespace).
 		Patch(ctx, deployment, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	return err
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Scale logic
+// Main scaling logic
 // ────────────────────────────────────────────────────────────────────────────
 
 func checkAndScale(ctx context.Context, fs *firestore.Client) {
 	namespace := util.Getenv("K8S_NAMESPACE", "production")
 	deployment := util.Getenv("STREAM_DEPLOYMENT", "stream-service")
 
-	matches, err := getUpcomingMatches(ctx, fs)
+	upcoming, err := getUpcomingMatches(ctx, fs)
 	if err != nil {
-		log.Printf(`{"service":"pre-scaler","level":"error","msg":"firestore query failed","error":%q}`, err.Error())
+		log.Printf(`{"service":"pre-scaler","level":"error","msg":"query failed","error":%q}`, err.Error())
 		return
 	}
 
-	if len(matches) > 0 {
-		log.Printf(`{"service":"pre-scaler","level":"info","msg":"upcoming match found","count":%d}`, len(matches))
+	viewers, err := getLiveViewers(ctx, fs)
+	if err != nil {
+		log.Printf(`{"service":"pre-scaler","level":"warn","msg":"viewer count failed","error":%q}`, err.Error())
+	}
 
-		// Try to scale Kubernetes — will fail locally (expected), works on GKE
-		if err := patchReplicas(ctx, namespace, deployment, 20); err != nil {
-			log.Printf(`{"service":"pre-scaler","level":"warn","msg":"k8s scale up failed (expected locally)","error":%q}`, err.Error())
-		} else {
-			log.Println(`{"service":"pre-scaler","level":"info","msg":"scaled up to 20 pods"}`)
-		}
+	next, err := getNextScheduledMatch(ctx, fs)
+	if err != nil {
+		log.Printf(`{"service":"pre-scaler","level":"warn","msg":"next match query failed","error":%q}`, err.Error())
+	}
 
-		// Publish match_reminder for each — Notification Service sends FCM push to Android
-		// This WILL work locally since Pub/Sub is connected
-		for _, m := range matches {
-			if err := psclient.PublishEvent(ctx, "notification_events", map[string]any{
-				"eventType": "match_reminder",
-				"streamId":  m.ID,
-				"title":     m.Title,
-				"timestamp": time.Now().UTC().Format(time.RFC3339),
-			}); err == nil {
-				log.Printf(`{"service":"pre-scaler","level":"info","msg":"match_reminder published","matchId":%q,"title":%q}`, m.ID, m.Title)
-			}
-		}
+	replicas := calculateOptimalReplicas(upcoming, viewers, next)
 
+	log.Printf(`{"service":"pre-scaler","level":"info","msg":"decision","replicas":%d,"viewers":%d,"upcomingMatches":%d}`,
+		replicas, viewers, len(upcoming))
+
+	if err := patchReplicas(ctx, namespace, deployment, replicas); err != nil {
+		log.Printf(`{"service":"pre-scaler","level":"warn","msg":"k8s patch failed (expected locally)","error":%q}`, err.Error())
 	} else {
-		log.Println(`{"service":"pre-scaler","level":"info","msg":"no upcoming matches — scaling down to 4"}`)
+		log.Printf(`{"service":"pre-scaler","level":"info","msg":"scaled","replicas":%d}`, replicas)
+	}
 
-		// Try to scale down — will fail locally (expected), works on GKE
-		if err := patchReplicas(ctx, namespace, deployment, 4); err != nil {
-			log.Printf(`{"service":"pre-scaler","level":"warn","msg":"k8s scale down failed (expected locally)","error":%q}`, err.Error())
-		} else {
-			log.Println(`{"service":"pre-scaler","level":"info","msg":"scaled down to 4 pods"}`)
-		}
+	// Notify Android users about upcoming matches
+	for _, m := range upcoming {
+		psclient.PublishEvent(ctx, "notification_events", map[string]any{
+			"eventType": "match_reminder",
+			"streamId":  m.ID,
+			"title":     m.Title,
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		})
+		log.Printf(`{"service":"pre-scaler","level":"info","msg":"reminder_sent","match":%q}`, m.Title)
 	}
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Main — runs once and exits (Kubernetes CronJob schedule: "*/1 * * * *")
+// Main
 // ────────────────────────────────────────────────────────────────────────────
 
 func main() {
@@ -143,9 +218,9 @@ func main() {
 	projectID := util.MustGetenv("GCP_PROJECT_ID")
 	credsFile := util.Getenv("FIREBASE_CREDENTIALS", "")
 
-	log.Printf(`{"service":"pre-scaler","level":"info","msg":"run starting","time":%q}`, time.Now().UTC().Format(time.RFC3339))
+	log.Printf(`{"service":"pre-scaler","level":"info","msg":"run starting","time":%q}`,
+		time.Now().UTC().Format(time.RFC3339))
 
-	// Firestore — pass credentials explicitly
 	var fsOpts []option.ClientOption
 	if credsFile != "" {
 		if strings.HasPrefix(strings.TrimSpace(credsFile), "{") {
@@ -160,7 +235,6 @@ func main() {
 	}
 	defer fs.Close()
 
-	// Pub/Sub — pass credentials explicitly
 	if _, err := psclient.InitClient(ctx, projectID, credsFile); err != nil {
 		log.Fatalf("pubsub init: %v", err)
 	}
@@ -168,5 +242,4 @@ func main() {
 	checkAndScale(ctx, fs)
 
 	log.Println(`{"service":"pre-scaler","level":"info","msg":"run complete"}`)
-	// Process exits — Kubernetes CronJob restarts it every minute
 }
