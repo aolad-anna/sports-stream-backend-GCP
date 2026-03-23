@@ -7,11 +7,11 @@ echo "user-service started on :8081"
 PORT=8082 /usr/local/bin/stream-service &
 echo "stream-service started on :8082"
 
+PORT=8083 /usr/local/bin/notification-service &
+echo "notification-service started on :8083"
+
 PORT=8085 METRICS_PORT=9090 /usr/local/bin/analytics-service &
 echo "analytics-service started on :8085"
-
-/usr/local/bin/notification-service &
-echo "notification-service started"
 
 sleep 3
 
