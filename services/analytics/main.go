@@ -5,231 +5,257 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"cloud.google.com/go/firestore"
-	"cloud.google.com/go/pubsub"
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/api/option"
 
-	fbclient "sports-stream-backend/pkg/firebase"
-	"sports-stream-backend/pkg/middleware"
+	psclient "sports-stream-backend/pkg/pubsub"
 	"sports-stream-backend/pkg/util"
 )
 
-// ── Models ────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
+// Prometheus metrics — 4 Golden Signals
+// ────────────────────────────────────────────────────────────────────────────
 
-type ViewerEvent struct {
+var (
+	// SATURATION — live viewer count per stream_id (feeds HPA Trigger 4)
+	liveViewers = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "live_concurrent_viewers",
+		Help: "Number of viewers currently watching a stream.",
+	}, []string{"stream_id"})
+
+	// TRAFFIC — total events processed by type
+	eventsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "stream_events_total",
+		Help: "Total Pub/Sub events processed.",
+	}, []string{"event_type"})
+
+	// LATENCY — event processing time
+	joinLatency = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    "viewer_join_latency_ms",
+		Help:    "Milliseconds from viewer_join event receipt to processing.",
+		Buckets: []float64{5, 10, 25, 50, 100, 250, 500, 1000},
+	})
+)
+
+func init() {
+	prometheus.MustRegister(liveViewers, eventsTotal, joinLatency)
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// In-memory counters per stream
+// ────────────────────────────────────────────────────────────────────────────
+
+var (
+	viewerCounters sync.Map // map[streamID]*atomic.Int64
+	totalJoins     sync.Map
+	peakViewers    sync.Map
+)
+
+func getInt64(m *sync.Map, key string) *atomic.Int64 {
+	v, _ := m.LoadOrStore(key, &atomic.Int64{})
+	return v.(*atomic.Int64)
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Models
+// ────────────────────────────────────────────────────────────────────────────
+
+type PubSubEvent struct {
 	EventType string `json:"eventType"`
 	StreamID  string `json:"streamId"`
 	UID       string `json:"uid"`
 	Timestamp string `json:"timestamp"`
 }
 
-type StreamEvent struct {
-	EventType string `json:"eventType"`
-	StreamID  string `json:"streamId"`
-	Title     string `json:"title"`
-	Timestamp string `json:"timestamp"`
-}
-
 type StreamStats struct {
 	StreamID       string    `firestore:"streamId"       json:"streamId"`
-	CurrentViewers int       `firestore:"currentViewers" json:"currentViewers"`
-	PeakViewers    int       `firestore:"peakViewers"    json:"peakViewers"`
-	TotalJoins     int       `firestore:"totalJoins"     json:"totalJoins"`
+	PeakViewers    int64     `firestore:"peakViewers"    json:"peakViewers"`
+	TotalJoins     int64     `firestore:"totalJoins"     json:"totalJoins"`
+	CurrentViewers int64     `firestore:"currentViewers" json:"currentViewers"`
 	UpdatedAt      time.Time `firestore:"updatedAt"      json:"updatedAt"`
 }
 
-// ── HTTP Handler ──────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
+// Pub/Sub event handlers
+// ────────────────────────────────────────────────────────────────────────────
 
-type handler struct {
-	fs *firestore.Client
-}
-
-func (h *handler) getStreamStats(w http.ResponseWriter, r *http.Request) {
-	streamID := mux.Vars(r)["id"]
-	snap, err := h.fs.Collection("analytics").Doc(streamID).Get(r.Context())
-	if err != nil {
-		jsonOK(w, StreamStats{
-			StreamID:  streamID,
-			UpdatedAt: time.Now().UTC(),
-		})
-		return
-	}
-	var stats StreamStats
-	snap.DataTo(&stats)
-	jsonOK(w, stats)
-}
-
-// ── FIX: processViewerEvent ───────────────────────────────────────────────────
-// Bug was: analytics doc was never updated because transaction was never called.
-// Now: creates doc on first join, increments/decrements correctly, tracks peak.
-func processViewerEvent(ctx context.Context, fs *firestore.Client, data []byte) {
-	var event ViewerEvent
-	if err := json.Unmarshal(data, &event); err != nil {
-		log.Printf("analytics: parse viewer event error: %v", err)
-		return
-	}
-	if event.StreamID == "" {
-		return
+func handleViewerEvent(data []byte) bool {
+	start := time.Now()
+	var ev PubSubEvent
+	if err := json.Unmarshal(data, &ev); err != nil {
+		log.Printf("analytics: bad viewer event: %v", err)
+		return false
 	}
 
-	ref := fs.Collection("analytics").Doc(event.StreamID)
-	err := fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-		snap, err := tx.Get(ref)
-		var stats StreamStats
-		if err != nil {
-			// First event for this stream — create document
-			stats = StreamStats{
-				StreamID:  event.StreamID,
-				UpdatedAt: time.Now().UTC(),
+	sid := ev.StreamID
+	switch ev.EventType {
+	case "viewer_join":
+		count := getInt64(&viewerCounters, sid).Add(1)
+		getInt64(&totalJoins, sid).Add(1)
+		// Update peak atomically
+		peak := getInt64(&peakViewers, sid)
+		for {
+			old := peak.Load()
+			if count <= old {
+				break
 			}
-		} else {
-			snap.DataTo(&stats)
-		}
-
-		switch event.EventType {
-		case "viewer_join":
-			stats.CurrentViewers++
-			stats.TotalJoins++
-			if stats.CurrentViewers > stats.PeakViewers {
-				stats.PeakViewers = stats.CurrentViewers
-			}
-		case "viewer_leave":
-			stats.CurrentViewers--
-			if stats.CurrentViewers < 0 {
-				stats.CurrentViewers = 0
+			if peak.CompareAndSwap(old, count) {
+				break
 			}
 		}
-		stats.UpdatedAt = time.Now().UTC()
-		return tx.Set(ref, stats)
-	})
+		liveViewers.WithLabelValues(sid).Set(float64(count))
+		joinLatency.Observe(float64(time.Since(start).Milliseconds()))
 
-	if err != nil {
-		log.Printf("analytics: transaction error streamId=%s: %v", event.StreamID, err)
-	} else {
-		log.Printf("analytics: %s → streamId=%s", event.EventType, event.StreamID)
+	case "viewer_leave":
+		count := getInt64(&viewerCounters, sid).Add(-1)
+		if count < 0 {
+			getInt64(&viewerCounters, sid).Store(0)
+			count = 0
+		}
+		liveViewers.WithLabelValues(sid).Set(float64(count))
 	}
+
+	eventsTotal.WithLabelValues(ev.EventType).Inc()
+	return true
 }
 
-// FIX: processStreamEvent — init analytics doc when stream starts
-func processStreamEvent(ctx context.Context, fs *firestore.Client, data []byte) {
-	var event StreamEvent
-	if err := json.Unmarshal(data, &event); err != nil {
-		log.Printf("analytics: parse stream event error: %v", err)
-		return
+func handleStreamEvent(data []byte, fs *firestore.Client) bool {
+	var ev PubSubEvent
+	if err := json.Unmarshal(data, &ev); err != nil {
+		return false
 	}
-	if event.StreamID == "" {
-		return
-	}
+	eventsTotal.WithLabelValues(ev.EventType).Inc()
 
-	ref := fs.Collection("analytics").Doc(event.StreamID)
-	switch event.EventType {
-	case "stream_started":
-		// Create analytics doc when stream starts
+	if ev.EventType == "stream_ended" {
 		stats := StreamStats{
-			StreamID:  event.StreamID,
-			UpdatedAt: time.Now().UTC(),
+			StreamID:       ev.StreamID,
+			PeakViewers:    getInt64(&peakViewers, ev.StreamID).Load(),
+			TotalJoins:     getInt64(&totalJoins, ev.StreamID).Load(),
+			CurrentViewers: 0,
+			UpdatedAt:      time.Now().UTC(),
 		}
-		if _, err := ref.Set(ctx, stats); err != nil {
-			log.Printf("analytics: init failed streamId=%s: %v", event.StreamID, err)
-		} else {
-			log.Printf("analytics: initialized streamId=%s", event.StreamID)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if _, err := fs.Collection("analytics").Doc(ev.StreamID).Set(ctx, stats); err != nil {
+			log.Printf("analytics: firestore write: %v", err)
+		}
+		viewerCounters.Delete(ev.StreamID)
+		totalJoins.Delete(ev.StreamID)
+		peakViewers.Delete(ev.StreamID)
+		liveViewers.DeleteLabelValues(ev.StreamID)
+	}
+	return true
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// HTTP — GET /api/v1/analytics/stream/:id
+// Android admin screen calls this to show peak viewers and total joins.
+// ────────────────────────────────────────────────────────────────────────────
+
+func getStreamStats(fs *firestore.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sid := mux.Vars(r)["id"]
+
+		snap, err := fs.Collection("analytics").Doc(sid).Get(r.Context())
+		w.Header().Set("Content-Type", "application/json")
+		if err != nil {
+			// Still live — return in-memory counters
+			stats := StreamStats{
+				StreamID:       sid,
+				PeakViewers:    getInt64(&peakViewers, sid).Load(),
+				TotalJoins:     getInt64(&totalJoins, sid).Load(),
+				CurrentViewers: getInt64(&viewerCounters, sid).Load(),
+				UpdatedAt:      time.Now().UTC(),
+			}
+			json.NewEncoder(w).Encode(map[string]any{"success": true, "data": stats})
+			return
 		}
 
-	case "stream_ended":
-		// Reset currentViewers to 0 when stream ends
-		ref.Update(ctx, []firestore.Update{
-			{Path: "currentViewers", Value: 0},
-			{Path: "updatedAt", Value: time.Now().UTC()},
-		})
-		log.Printf("analytics: stream ended streamId=%s", event.StreamID)
+		var stats StreamStats
+		snap.DataTo(&stats)
+		json.NewEncoder(w).Encode(map[string]any{"success": true, "data": stats})
 	}
 }
 
-// ── Pub/Sub subscriptions ─────────────────────────────────────────────────────
-
-func startViewerSub(ctx context.Context, client *pubsub.Client, fs *firestore.Client, subName string) {
-	sub := client.Subscription(subName)
-	log.Printf("analytics: viewer sub listening: %s", subName)
-	sub.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
-		processViewerEvent(ctx, fs, msg.Data)
-		msg.Ack()
-	})
-}
-
-func startStreamSub(ctx context.Context, client *pubsub.Client, fs *firestore.Client, subName string) {
-	sub := client.Subscription(subName)
-	log.Printf("analytics: stream sub listening: %s", subName)
-	sub.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
-		processStreamEvent(ctx, fs, msg.Data)
-		msg.Ack()
-	})
-}
-
-// ── Main ──────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
+// Main
+// ────────────────────────────────────────────────────────────────────────────
 
 func main() {
 	ctx := context.Background()
 	projectID := util.MustGetenv("GCP_PROJECT_ID")
 	port := util.Getenv("PORT", "8085")
+	metricsPort := util.Getenv("METRICS_PORT", "9090")
 	credsFile := util.Getenv("FIREBASE_CREDENTIALS", "")
-	viewerSub := util.Getenv("VIEWER_SUB", "viewer-events-analytics-sub")
-	streamSub := util.Getenv("STREAM_SUB", "stream-events-analytics-sub")
 
-	if _, err := fbclient.InitClient(ctx, credsFile); err != nil {
-		log.Fatalf("analytics: firebase init: %v", err)
+	// Pub/Sub — pass credentials explicitly
+	if _, err := psclient.InitClient(ctx, projectID, credsFile); err != nil {
+		log.Fatalf("pubsub init: %v", err)
 	}
 
+	// Firestore — pass credentials explicitly
 	var fsOpts []option.ClientOption
 	if credsFile != "" {
-		fsOpts = append(fsOpts, option.WithCredentialsFile(credsFile))
+		if strings.HasPrefix(strings.TrimSpace(credsFile), "{") {
+			fsOpts = append(fsOpts, option.WithCredentialsJSON([]byte(credsFile)))
+		} else {
+			fsOpts = append(fsOpts, option.WithCredentialsFile(credsFile))
+		}
 	}
 	fs, err := firestore.NewClient(ctx, projectID, fsOpts...)
 	if err != nil {
-		log.Fatalf("analytics: firestore init: %v", err)
+		log.Fatalf("firestore init: %v", err)
 	}
 	defer fs.Close()
 
-	var psOpts []option.ClientOption
-	if credsFile != "" {
-		psOpts = append(psOpts, option.WithCredentialsFile(credsFile))
+	// 4 competing consumer goroutines on viewer events (competing consumers pattern)
+	viewerSub := util.Getenv("VIEWER_SUB", "viewer-events-analytics-sub")
+	for i := 0; i < 4; i++ {
+		go func() {
+			if err := psclient.Subscribe(ctx, viewerSub, handleViewerEvent); err != nil {
+				log.Printf("viewer sub error: %v", err)
+			}
+		}()
 	}
-	psClient, err := pubsub.NewClient(ctx, projectID, psOpts...)
-	if err != nil {
-		log.Fatalf("analytics: pubsub init: %v", err)
-	}
-	defer psClient.Close()
 
-	// Start subscribers in background
-	go startViewerSub(ctx, psClient, fs, viewerSub)
-	go startStreamSub(ctx, psClient, fs, streamSub)
+	// Stream events subscriber
+	streamSub := util.Getenv("STREAM_SUB", "stream-events-analytics-sub")
+	go func() {
+		if err := psclient.Subscribe(ctx, streamSub, func(data []byte) bool {
+			return handleStreamEvent(data, fs)
+		}); err != nil {
+			log.Printf("stream sub error: %v", err)
+		}
+	}()
 
-	// HTTP server
-	h := &handler{fs: fs}
+	// Prometheus metrics on separate port — scraped by prometheus-adapter for HPA Trigger 4
+	go func() {
+		metricsMux := http.NewServeMux()
+		metricsMux.Handle("/metrics", promhttp.Handler())
+		log.Printf("analytics-service metrics on :%s/metrics", metricsPort)
+		http.ListenAndServe(":"+metricsPort, metricsMux)
+	}()
+
+	// REST API
 	r := mux.NewRouter()
 	r.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
-		jsonOK(w, map[string]string{"service": "analytics-service", "status": "ok"})
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"service": "analytics-service", "status": "ok"})
 	}).Methods(http.MethodGet)
 
 	v1 := r.PathPrefix("/api/v1").Subrouter()
-	v1.Use(middleware.AuthRequired)
-	v1.HandleFunc("/analytics/stream/{id}", h.getStreamStats).Methods(http.MethodGet)
+	v1.HandleFunc("/analytics/stream/{id}", getStreamStats(fs)).Methods(http.MethodGet)
 
 	log.Printf("analytics-service listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, r); err != nil {
-		log.Fatalf("analytics: ListenAndServe: %v", err)
+		log.Fatalf("ListenAndServe: %v", err)
 	}
-}
-
-func jsonOK(w http.ResponseWriter, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"success": true, "data": v})
-}
-
-func jsonError(w http.ResponseWriter, msg string, code int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]any{"success": false, "message": msg})
 }
