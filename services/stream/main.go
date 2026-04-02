@@ -13,6 +13,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"github.com/gorilla/mux"
+	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -370,6 +371,15 @@ func main() {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+		healthCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		_, err := fs.Collection("streams").Limit(1).Documents(healthCtx).Next()
+		if err != nil && err != iterator.Done {
+			jsonError(w, "health check failed: firestore unreachable", http.StatusServiceUnavailable)
+			return
+		}
+
 		jsonOK(w, map[string]string{"service": "stream-service", "status": "ok"})
 	}).Methods(http.MethodGet)
 

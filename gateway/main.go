@@ -1,13 +1,39 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
+
+type serviceHealth struct {
+	Status  string `json:"status"`
+	URL     string `json:"url"`
+	Details string `json:"details,omitempty"`
+}
+
+func checkHealth(client *http.Client, endpoint string) serviceHealth {
+	resp, err := client.Get(endpoint)
+	if err != nil {
+		return serviceHealth{Status: "down", URL: endpoint, Details: err.Error()}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return serviceHealth{Status: "up", URL: endpoint}
+	}
+
+	return serviceHealth{
+		Status:  "down",
+		URL:     endpoint,
+		Details: resp.Status,
+	}
+}
 
 const landingPage = `<!DOCTYPE html>
 <html lang="en">
@@ -62,6 +88,12 @@ const landingPage = `<!DOCTYPE html>
     <div class="endpoint"><span>POST</span> /api/v1/notifications/test</div>
     <div class="endpoint"><span>GET</span>  /health/notification</div>
   </div>
+	<div class="card">
+		<div class="card-header"><div class="dot-color" style="background:#b91c1c"></div><div><div class="card-title">admin-service</div><div class="card-port">:8084</div></div></div>
+		<div class="endpoint"><span>GET</span>  /admin</div>
+		<div class="endpoint"><span>GET</span>  /api/v1/admin/dashboard</div>
+		<div class="endpoint"><span>PATCH</span> /api/v1/admin/users/:uid/role</div>
+	</div>
   <div class="card">
     <div class="card-header"><div class="dot-color" style="background:#10b981"></div><div><div class="card-title">analytics-service</div><div class="card-port">:8085</div></div></div>
     <div class="endpoint"><span>GET</span>  /api/v1/analytics/stream/:id</div>
@@ -72,6 +104,7 @@ const landingPage = `<!DOCTYPE html>
 <div class="links">
   <a class="btn btn-primary" href="/health">Health Check</a>
   <a class="btn btn-outline" href="/api/v1/streams">Live Streams</a>
+	<a class="btn btn-outline" href="/admin">Admin Console</a>
 </div>
 <p class="footer">Sports Stream Platform &middot; CCC&apos;26 Cloud Computing Competition &middot; March 2026</p>
 </body>
@@ -95,7 +128,9 @@ func main() {
 	userProxy := newProxy("http://127.0.0.1:8081")
 	streamProxy := newProxy("http://127.0.0.1:8082")
 	notificationProxy := newProxy("http://127.0.0.1:8083")
+	adminProxy := newProxy("http://127.0.0.1:8084")
 	analyticsProxy := newProxy("http://127.0.0.1:8085")
+	healthClient := &http.Client{Timeout: 2 * time.Second}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -112,7 +147,27 @@ func main() {
 		// ── Health checks ──────────────────────────────────────────────────
 		case path == "/health":
 			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"gateway":"ok","services":{"user":"http://127.0.0.1:8081","stream":"http://127.0.0.1:8082","notification":"http://127.0.0.1:8083","analytics":"http://127.0.0.1:8085"}}`))
+			services := map[string]serviceHealth{
+				"user":         checkHealth(healthClient, "http://127.0.0.1:8081/health"),
+				"stream":       checkHealth(healthClient, "http://127.0.0.1:8082/health"),
+				"notification": checkHealth(healthClient, "http://127.0.0.1:8083/health"),
+				"admin":        checkHealth(healthClient, "http://127.0.0.1:8084/health"),
+				"analytics":    checkHealth(healthClient, "http://127.0.0.1:8085/health"),
+			}
+
+			overall := "ok"
+			for _, s := range services {
+				if s.Status != "up" {
+					overall = "degraded"
+					w.WriteHeader(http.StatusServiceUnavailable)
+					break
+				}
+			}
+
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"gateway":  overall,
+				"services": services,
+			})
 
 		case path == "/health/user":
 			r.URL.Path = "/health"
@@ -126,6 +181,10 @@ func main() {
 			r.URL.Path = "/health"
 			notificationProxy.ServeHTTP(w, r)
 
+		case path == "/health/admin":
+			r.URL.Path = "/health"
+			adminProxy.ServeHTTP(w, r)
+
 		case path == "/health/analytics":
 			r.URL.Path = "/health"
 			analyticsProxy.ServeHTTP(w, r)
@@ -137,6 +196,13 @@ func main() {
 		// ── analytics-service ──────────────────────────────────────────────
 		case strings.HasPrefix(path, "/api/v1/analytics"):
 			analyticsProxy.ServeHTTP(w, r)
+
+		// ── admin-service ──────────────────────────────────────────────────
+		case strings.HasPrefix(path, "/api/v1/admin"):
+			adminProxy.ServeHTTP(w, r)
+
+		case strings.HasPrefix(path, "/admin"):
+			adminProxy.ServeHTTP(w, r)
 
 		// ── stream-service ─────────────────────────────────────────────────
 		case strings.HasPrefix(path, "/api/v1/streams"):

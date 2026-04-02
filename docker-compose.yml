@@ -105,3 +105,29 @@ services:
       NOTIFICATION_SUB:     notification-events-sub
       ENV:                  production
     restart: unless-stopped
+
+  # ── admin-service :8084 ────────────────────────────────────────────────
+  admin-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: admin
+    image: sports-stream/admin-service
+    container_name: admin-service
+    ports:
+      - "8084:8084"
+    environment:
+      PORT:                 "8084"
+      GCP_PROJECT_ID:       ${GCP_PROJECT_ID}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS}
+      ADMIN_PANEL_USERNAME: ${ADMIN_PANEL_USERNAME:-admin}
+      ADMIN_PANEL_PASSWORD: ${ADMIN_PANEL_PASSWORD}
+      ADMIN_PANEL_SESSION_SECRET: ${ADMIN_PANEL_SESSION_SECRET}
+      ENV:                  production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8084/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

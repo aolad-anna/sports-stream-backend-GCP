@@ -17,6 +17,7 @@ RUN go build -o /bin/user-service         ./services/user/main.go         && chm
 RUN go build -o /bin/stream-service       ./services/stream/main.go       && chmod +x /bin/stream-service
 RUN go build -o /bin/analytics-service    ./services/analytics/main.go    && chmod +x /bin/analytics-service
 RUN go build -o /bin/notification-service ./services/notification/main.go && chmod +x /bin/notification-service
+RUN go build -o /bin/admin-service        ./services/admin/main.go        && chmod +x /bin/admin-service
 RUN go build -o /bin/gateway              ./gateway/main.go               && chmod +x /bin/gateway
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────
@@ -29,6 +30,7 @@ COPY --from=builder /bin/user-service         /usr/local/bin/user-service
 COPY --from=builder /bin/stream-service       /usr/local/bin/stream-service
 COPY --from=builder /bin/analytics-service    /usr/local/bin/analytics-service
 COPY --from=builder /bin/notification-service /usr/local/bin/notification-service
+COPY --from=builder /bin/admin-service        /usr/local/bin/admin-service
 COPY --from=builder /bin/gateway              /usr/local/bin/gateway
 
 COPY start.sh /usr/local/bin/start.sh

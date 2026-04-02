@@ -1,0 +1,90 @@
+# Cloud Computing Competition - CCC’26
+
+### 20 Projects. One Competition. One Podium.
+
+This semester, all cloud computing project teams from the **Bachelor’s** and **Master’s** degree ****take part in a single **project competition -** the **CCC’26.**
+
+Across both courses, **20 teams** work on challenging cloud projects with clearly defined **requirements**. All final solutions are **presented** to a **jury** at the **Demo Day** with hope to make it to the **podium**.
+
+## **Project Kickoff**
+
+Each team has the **first two weeks** to develop a software idea that satisfies all of the requirements listed below. During this phase, teams must:
+
+1. **Define the idea:** Describe the software product, its purpose, and its target users.
+2. **Draft the architecture:** Create an initial system architecture diagram showing the planned 
+cloud services, components, and their interactions.
+3. **Submit a proposal:** Commit both the idea description and the architecture diagram for review.
+
+The architecture does not need to be final at this stage. It will evolve as the project progresses. However, it must demonstrate that the system is **meaningfully distributed**. A simple frontend backed by a single API is not sufficient. The architecture should involve multiple independent components or services that interact with each other, reflecting a realistic cloud-based system.
+
+Rethinking and refining your architecture as the project progresses is encouraged. In the final presentation, each team must **highlight what changed from the original architecture and explain why**.
+
+Once submitted, the **core idea** is binding for the remainder of the project. The architecture may evolve along the way - and that is perfectly fine.
+
+# Requirements
+
+Each team is allowed to follow its **own idea**. The following section describes the **minimal** **requirements** the jury expects from the final project presented at the **Demo Day**.
+
+### Identity and Access Management
+
+Use a cloud identity provider to signup and sign in users. Implement users with different roles. Make sure users are only authorized to perform allowed actions.
+
+### User Interfaces & Experience
+
+Implement multiple user interfaces that make sense for your application. At least, there should be interfaces for a “normal” user and an “admin” user. Decide for yourself how and where to host the interfaces.
+
+Make sure to follow UX best practices, e.g. by implementing typical design frameworks. Make it pretty. Reduce friction of and as simple as possible - otherwise nobody will use your system.
+
+### Infrastructure as Code
+
+Use an Infrastructure-as-Code tool to manage the entire infrastructure. The setup must be easy and reliable to deploy, update, and tear down.
+
+### Security
+
+Follow the cloud security best practices, such as the least-privilege principle and zero trust.
+
+### **Build vs. Managed Services**
+
+For each component in your system, make a deliberate decision: build and operate it yourself, or use a managed service. Consider the development effort, the ongoing maintenance burden, and whether your team wants to be responsible for the uptime and reliability of that component. Assess the criticality of each service and factor it into your decision. 
+
+Document your reasoning.
+
+### Architecture
+
+Plan, diagram, and continuously refine your cloud architecture as the project evolves. Make deliberate decisions about where to use containers and where to use managed services. The architecture must reflect your problem definition.
+
+Find a suitable cloud provider and justify, why you think it is best suited.
+
+### Scalability & Load Testing
+
+Design a system that is elastic and adapts to varying load. To ensure the system works, conduct a load test and record how the system reacts including scaling actions and user experience (e.g. response times).
+
+### Monitoring & Observability
+
+Implement monitoring, logging, and/or alerting for your system. You should be able to observe the health and behavior of your services, identify issues, and understand what is happening across your distributed components.
+
+### Pricing
+
+Set up a calculation based on expected workloads for your idea. Add calculations for multiple scenarios. Start with the idle scenario: *“How much does the platform cost when it is idle?”*. Make assumptions for different workloads and calculate how the price changes and how it affects the price per user.
+
+### Migration to other Provider
+
+Find another cloud provider. Analyze and write down the changes required to your system to move from the existing platform to the new one. Draw an architecture diagram for the new architecture including new service names.
+
+## Practical Details
+
+- **Team size:** 4-6 members. A maximum of 20 teams will be formed.
+- **Demo Day:** **[TBD]** - all teams present on this date.
+- **Presentation format:** 10 minutes per team, followed by 5 minutes of jury Q&A.
+
+# Grading Criteria
+
+The jury will evaluate each project by the following criteria on Demo Day.
+
+| Criteria | Description | Max Points |
+| --- | --- | --- |
+| Problem Understanding & Solution Fit | Clear articulation of the problem and constraints, Solution matches the requirements and goals, Sensible scope (neither under- nor over-engineered), Clear value of the solution is evident | 10 |
+| Architecture & System Design | Clear high-level architecture. Appropriate choice of cloud services and components. Reasonable separation of concerns. Justified build vs. managed decisions. Awareness of scalability, reliability, observability, and failure modes. | 10 |
+| Live Demo & System Behavior | System works as presented, Demo supports the claimed functionality, Handling of errors, edge cases, or unexpected behavior, Overall robustness during the live demo | 10 |
+| Presentation & Communication | Clear structure and narrative, Understandable explanations (even for non-specialists), Good time management, Confident and precise answers to jury questions | 10 |
+| Innovation, Potential & Market Readiness | Originality / novelty of the idea, Clarity of use case and target users, Realistic path to adoption (who would use it, and why?), Feasibility of turning the project into a product or service, Awareness of market, competition, or differentiation | 10 |

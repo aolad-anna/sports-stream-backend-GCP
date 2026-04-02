@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"firebase.google.com/go/v4/messaging"
 	"github.com/gorilla/mux"
@@ -98,6 +99,12 @@ func handleTestNotification(w http.ResponseWriter, r *http.Request) {
 
 // GET /health
 func handleHealth(w http.ResponseWriter, _ *http.Request) {
+	healthCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if _, err := fbclient.GetApp().Auth(healthCtx); err != nil {
+		jsonError(w, "health check failed: firebase auth unavailable", http.StatusServiceUnavailable)
+		return
+	}
 	jsonOK(w, map[string]string{"service": "notification-service", "status": "ok"})
 }
 
