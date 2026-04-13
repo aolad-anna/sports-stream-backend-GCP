@@ -7,6 +7,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"sports-stream-backend/pkg/util"
 	"strings"
 	"time"
 )
@@ -125,17 +126,19 @@ func main() {
 		port = "8080"
 	}
 
-	//// NEW — read from environment (works on Cloud Run)
-	//userProxy := newProxy(util.MustGetenv("USER_SERVICE_URL"))
-	//streamProxy := newProxy(util.MustGetenv("STREAM_SERVICE_URL"))
-	//analyticsProxy := newProxy(util.MustGetenv("ANALYTICS_SERVICE_URL"))
-	//notificationProxy := newProxy(util.MustGetenv("NOTIFICATION_SERVICE_URL"))
+	// NEW — read from environment (works on Cloud Run)
+	// NEW — read from environment (works on Cloud Run)
+	userProxy := newProxy(util.MustGetenv("USER_SERVICE_URL"))
+	streamProxy := newProxy(util.MustGetenv("STREAM_SERVICE_URL"))
+	analyticsProxy := newProxy(util.MustGetenv("ANALYTICS_SERVICE_URL"))
+	notificationProxy := newProxy(util.MustGetenv("NOTIFICATION_SERVICE_URL"))
+	adminProxy := newProxy(util.MustGetenv("ADMIN_SERVICE_URL"))
 
-	userProxy := newProxy("http://127.0.0.1:8081")
-	streamProxy := newProxy("http://127.0.0.1:8082")
-	notificationProxy := newProxy("http://127.0.0.1:8083")
-	adminProxy := newProxy("http://127.0.0.1:8084")
-	analyticsProxy := newProxy("http://127.0.0.1:8085")
+	//userProxy := newProxy("http://127.0.0.1:8081")
+	//streamProxy := newProxy("http://127.0.0.1:8082")
+	//notificationProxy := newProxy("http://127.0.0.1:8083")
+	//adminProxy := newProxy("http://127.0.0.1:8084")
+	//analyticsProxy := newProxy("http://127.0.0.1:8085")
 	healthClient := &http.Client{Timeout: 2 * time.Second}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
