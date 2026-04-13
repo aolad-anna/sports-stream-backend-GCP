@@ -1,72 +1,65 @@
+substitutions:
+  _REGION: europe-west1
+  _SERVICE_NAME: sports-stream-backend
+  _REPOSITORY: sports-stream
+  _ENV: production
+  _ADMIN_PANEL_USERNAME: admin
+  _GCS_BUCKET: sports-stream-66553.appspot.com
+  _CDN_BASE_URL: https://storage.googleapis.com/sports-stream-66553.appspot.com
+  _TRANSCODER_LOCATION: europe-west1
+  _VIEWER_SUB: viewer-events-analytics-sub
+  _STREAM_SUB: stream-events-analytics-sub
+  _NOTIFICATION_SUB: notification-events-sub
+
 steps:
-  # Build each service image
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-f', 'services/user/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/user-service', '.']
-
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-f', 'services/stream/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/stream-service', '.']
-
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-f', 'services/analytics/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/analytics-service', '.']
-
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-f', 'services/notification/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/notification-service', '.']
-
-  # Push images
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/user-service']
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/stream-service']
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/analytics-service']
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/notification-service']
-
-  # Deploy each to Cloud Run — Cloud Run injects PORT=8080 automatically
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: Ensure Artifact Registry Repository
+    entrypoint: bash
     args:
-      - 'gcloud'
-      - 'run'
-      - 'deploy'
-      - 'user-service'
-      - '--image=gcr.io/$PROJECT_ID/user-service'
-      - '--region=europe-west1'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      - '--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,FIREBASE_CREDENTIALS=...'
+      - -c
+      - |
+        gcloud artifacts repositories describe "${_REPOSITORY}" \
+          --location="${_REGION}" >/dev/null 2>&1 || \
+        gcloud artifacts repositories create "${_REPOSITORY}" \
+          --repository-format=docker \
+          --location="${_REGION}" \
+          --description="Sports Stream backend images"
 
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+  - name: gcr.io/cloud-builders/docker
+    id: Build Image
     args:
-      - 'gcloud'
-      - 'run'
-      - 'deploy'
-      - 'stream-service'
-      - '--image=gcr.io/$PROJECT_ID/stream-service'
-      - '--region=europe-west1'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      - '--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,...'
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
+      - .
 
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+  - name: gcr.io/cloud-builders/docker
+    id: Push Image
     args:
-      - 'gcloud'
-      - 'run'
-      - 'deploy'
-      - 'analytics-service'
-      - '--image=gcr.io/$PROJECT_ID/analytics-service'
-      - '--region=europe-west1'
-      - '--platform=managed'
-      - '--allow-unauthenticated'
-      - '--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,VIEWER_SUB=viewer-events-analytics-sub,STREAM_SUB=stream-events-analytics-sub,...'
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
 
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: Deploy Cloud Run
+    entrypoint: gcloud
     args:
-      - 'gcloud'
-      - 'run'
-      - 'deploy'
-      - 'notification-service'
-      - '--image=gcr.io/$PROJECT_ID/notification-service'
-      - '--region=europe-west1'
-      - '--platform=managed'
-      - '--no-allow-unauthenticated'
-      - '--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,NOTIFICATION_SUB=notification-events-sub,...'
+      - run
+      - deploy
+      - ${_SERVICE_NAME}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --cpu=2
+      - --memory=2Gi
+      - --min-instances=0
+      - --max-instances=10
+      - --timeout=300
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,ENV=${_ENV},ADMIN_PANEL_USERNAME=${_ADMIN_PANEL_USERNAME},GCS_BUCKET=${_GCS_BUCKET},CDN_BASE_URL=${_CDN_BASE_URL},TRANSCODER_LOCATION=${_TRANSCODER_LOCATION},VIEWER_SUB=${_VIEWER_SUB},STREAM_SUB=${_STREAM_SUB},NOTIFICATION_SUB=${_NOTIFICATION_SUB}
+      - --set-secrets=FIREBASE_CREDENTIALS=FIREBASE_CREDENTIALS:latest,ADMIN_PANEL_PASSWORD=ADMIN_PANEL_PASSWORD:latest,ADMIN_PANEL_SESSION_SECRET=ADMIN_PANEL_SESSION_SECRET:latest
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
+
+options:
+  logging: CLOUD_LOGGING_ONLY
