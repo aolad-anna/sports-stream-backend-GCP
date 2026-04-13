@@ -1,0 +1,28 @@
+# cloudbuild.yaml
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '--build-arg', 'SERVICE=user', '-t', 'gcr.io/$PROJECT_ID/user-service', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '--build-arg', 'SERVICE=stream', '-t', 'gcr.io/$PROJECT_ID/stream-service', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '--build-arg', 'SERVICE=analytics', '-t', 'gcr.io/$PROJECT_ID/analytics-service', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '--build-arg', 'SERVICE=notification', '-t', 'gcr.io/$PROJECT_ID/notification-service', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '--build-arg', 'SERVICE=gateway', '-t', 'gcr.io/$PROJECT_ID/gateway', '.']
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: ['run', 'deploy', 'user-service', '--image', 'gcr.io/$PROJECT_ID/user-service',
+           '--region', 'europe-west1', '--allow-unauthenticated', '--platform', 'managed']
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: ['run', 'deploy', 'stream-service', '--image', 'gcr.io/$PROJECT_ID/stream-service',
+           '--region', 'europe-west1', '--allow-unauthenticated', '--platform', 'managed']
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: ['run', 'deploy', 'analytics-service', '--image', 'gcr.io/$PROJECT_ID/analytics-service',
+           '--region', 'europe-west1', '--allow-unauthenticated', '--platform', 'managed']
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: ['run', 'deploy', 'notification-service', '--image', 'gcr.io/$PROJECT_ID/notification-service',
+           '--region', 'europe-west1', '--no-allow-unauthenticated', '--platform', 'managed']
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: ['run', 'deploy', 'gateway', '--image', 'gcr.io/$PROJECT_ID/gateway',
+           '--region', 'europe-west1', '--allow-unauthenticated', '--platform', 'managed']

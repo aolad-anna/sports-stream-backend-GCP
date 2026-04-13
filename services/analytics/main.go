@@ -23,14 +23,14 @@ import (
 // ── Models ────────────────────────────────────────────────────────────────────
 
 type ViewerEvent struct {
-	EventType string `json:"eventType"` // viewer_join | viewer_leave
+	EventType string `json:"eventType"`
 	StreamID  string `json:"streamId"`
 	UID       string `json:"uid"`
 	Timestamp string `json:"timestamp"`
 }
 
 type StreamEvent struct {
-	EventType string `json:"eventType"` // stream_started | stream_ended
+	EventType string `json:"eventType"`
 	StreamID  string `json:"streamId"`
 	Title     string `json:"title"`
 	Timestamp string `json:"timestamp"`
@@ -50,29 +50,27 @@ type handler struct {
 	fs *firestore.Client
 }
 
-// processViewerEvent updates analytics/streamId on each viewer join or leave.
-// BUG FIX 1: Old code used a plain Update which failed silently when doc didn't exist.
-// BUG FIX 2: Now uses RunTransaction + Set so it creates doc on first viewer.
-// BUG FIX 3: currentViewers has a floor of 0 — can never go negative.
-// BUG FIX 4: PeakViewers is correctly tracked as max(current, peak).
+// processViewerEvent — updates currentViewers/peakViewers/totalJoins
+// AND writes a join/leave record to analytics/{streamId}/viewerHistory/{uid}
+
 func (h *handler) processViewerEvent(ctx context.Context, data []byte) bool {
 	var event ViewerEvent
 	if err := json.Unmarshal(data, &event); err != nil {
 		log.Printf("analytics: bad viewer event JSON: %v", err)
-		return true // ack to discard unparseable message
+		return true
 	}
-	if event.StreamID == "" {
+	if event.StreamID == "" || event.UID == "" {
 		return true
 	}
 
 	ref := h.fs.Collection("analytics").Doc(event.StreamID)
 
+	// ── Update main analytics counters ────────────────────────────────────────
 	err := h.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		snap, err := tx.Get(ref)
 
 		var doc AnalyticsDoc
 		if status.Code(err) == codes.NotFound {
-			// Doc does not exist yet — initialize it
 			doc = AnalyticsDoc{
 				StreamID:       event.StreamID,
 				CurrentViewers: 0,
@@ -104,25 +102,86 @@ func (h *handler) processViewerEvent(ctx context.Context, data []byte) bool {
 		}
 
 		doc.UpdatedAt = time.Now().UTC()
-		return tx.Set(ref, doc) // creates or overwrites
+		return tx.Set(ref, doc)
 	})
 
 	if err != nil {
 		log.Printf("analytics: transaction failed streamId=%s event=%s: %v",
 			event.StreamID, event.EventType, err)
-		return false // nack — let Pub/Sub retry
+		return false
 	}
 
-	log.Printf("analytics: %s → stream=%s", event.EventType, event.StreamID)
+	// ── Write viewer history record ───────────────────────────────────────────
+	// analytics/{streamId}/viewerHistory/{uid} — one doc per viewer
+	// Shows: uid, joinedAt, leftAt (updated on leave), eventCount
+	historyRef := ref.Collection("viewerHistory").Doc(event.UID)
+
+	switch event.EventType {
+	case "viewer_join":
+		joinTime := time.Now().UTC()
+		if event.Timestamp != "" {
+			if t, err := time.Parse(time.RFC3339, event.Timestamp); err == nil {
+				joinTime = t
+			}
+		}
+		// Set/merge — creates on first join, updates eventCount on re-join
+		h.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+			snap, err := tx.Get(historyRef)
+			if status.Code(err) == codes.NotFound {
+				// First time this user joined
+				return tx.Set(historyRef, map[string]any{
+					"uid":        event.UID,
+					"streamId":   event.StreamID,
+					"joinedAt":   joinTime,
+					"leftAt":     nil,
+					"joinCount":  int64(1),
+					"isWatching": true,
+					"updatedAt":  time.Now().UTC(),
+				})
+			} else if err != nil {
+				return err
+			}
+			// Re-joined — increment count
+			var existing map[string]any
+			snap.DataTo(&existing)
+			joinCount := int64(1)
+			if v, ok := existing["joinCount"]; ok {
+				if n, ok := v.(int64); ok {
+					joinCount = n + 1
+				}
+			}
+			return tx.Set(historyRef, map[string]any{
+				"uid":        event.UID,
+				"streamId":   event.StreamID,
+				"joinedAt":   joinTime,
+				"leftAt":     nil,
+				"joinCount":  joinCount,
+				"isWatching": true,
+				"updatedAt":  time.Now().UTC(),
+			})
+		})
+
+	case "viewer_leave":
+		leaveTime := time.Now().UTC()
+		if event.Timestamp != "" {
+			if t, err := time.Parse(time.RFC3339, event.Timestamp); err == nil {
+				leaveTime = t
+			}
+		}
+		// Update leftAt and isWatching=false
+		historyRef.Update(ctx, []firestore.Update{
+			{Path: "leftAt", Value: leaveTime},
+			{Path: "isWatching", Value: false},
+			{Path: "updatedAt", Value: time.Now().UTC()},
+		})
+	}
+
+	log.Printf("analytics: %s → stream=%s uid=%s", event.EventType, event.StreamID, event.UID)
 	return true
 }
 
 // processStreamEvent handles stream_started and stream_ended.
-// BUG FIX 5: stream_started now creates the analytics doc immediately,
-//
-//	so it's never missing from the analytics collection.
-//
-// BUG FIX 6: stream_ended resets currentViewers to 0.
+
 func (h *handler) processStreamEvent(ctx context.Context, data []byte) bool {
 	var event StreamEvent
 	if err := json.Unmarshal(data, &event); err != nil {
@@ -137,14 +196,12 @@ func (h *handler) processStreamEvent(ctx context.Context, data []byte) bool {
 
 	switch event.EventType {
 	case "stream_started":
-		// Create analytics doc as soon as stream starts
-		// MergeAll means if doc already exists we don't overwrite existing stats
-		doc := AnalyticsDoc{
-			StreamID:       event.StreamID,
-			CurrentViewers: 0,
-			PeakViewers:    0,
-			TotalJoins:     0,
-			UpdatedAt:      time.Now().UTC(),
+		doc := map[string]any{
+			"streamId":       event.StreamID,
+			"currentViewers": int64(0),
+			"peakViewers":    int64(0),
+			"totalJoins":     int64(0),
+			"updatedAt":      time.Now().UTC(),
 		}
 		if _, err := ref.Set(ctx, doc, firestore.MergeAll); err != nil {
 			log.Printf("analytics: failed to init doc streamId=%s: %v", event.StreamID, err)
@@ -153,11 +210,11 @@ func (h *handler) processStreamEvent(ctx context.Context, data []byte) bool {
 		log.Printf("analytics: initialized doc for stream %s", event.StreamID)
 
 	case "stream_ended":
-		// Reset currentViewers — stream is over
-		if _, err := ref.Set(ctx, map[string]any{
-			"currentViewers": 0,
+		doc := map[string]any{
+			"currentViewers": int64(0),
 			"updatedAt":      time.Now().UTC(),
-		}, firestore.MergeAll); err != nil {
+		}
+		if _, err := ref.Set(ctx, doc, firestore.MergeAll); err != nil {
 			log.Printf("analytics: failed to reset currentViewers streamId=%s: %v", event.StreamID, err)
 			return false
 		}
@@ -167,12 +224,12 @@ func (h *handler) processStreamEvent(ctx context.Context, data []byte) bool {
 	return true
 }
 
-// GET /api/v1/analytics/stream/:id
+// GET /api/v1/analytics/stream/:id — returns main analytics doc
+
 func (h *handler) getStreamStats(w http.ResponseWriter, r *http.Request) {
 	streamID := mux.Vars(r)["id"]
 	snap, err := h.fs.Collection("analytics").Doc(streamID).Get(r.Context())
 	if status.Code(err) == codes.NotFound {
-		// Return zero-state doc rather than 404 — valid when stream never had viewers
 		jsonOK(w, AnalyticsDoc{
 			StreamID:       streamID,
 			CurrentViewers: 0,
@@ -190,6 +247,36 @@ func (h *handler) getStreamStats(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, doc)
 }
 
+// GET /api/v1/analytics/stream/:id/viewers — returns full viewer history list
+
+func (h *handler) getViewerHistory(w http.ResponseWriter, r *http.Request) {
+	streamID := mux.Vars(r)["id"]
+
+	docs, err := h.fs.Collection("analytics").Doc(streamID).
+		Collection("viewerHistory").
+		OrderBy("joinedAt", firestore.Asc).
+		Documents(r.Context()).GetAll()
+
+	if err != nil {
+		jsonError(w, "firestore error", http.StatusInternalServerError)
+		return
+	}
+
+	viewers := make([]map[string]any, 0, len(docs))
+	for _, d := range docs {
+		var v map[string]any
+		if err := d.DataTo(&v); err == nil {
+			viewers = append(viewers, v)
+		}
+	}
+
+	jsonOK(w, map[string]any{
+		"streamId":    streamID,
+		"totalJoined": len(viewers),
+		"viewers":     viewers,
+	})
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 func main() {
@@ -198,7 +285,6 @@ func main() {
 	port := util.Getenv("PORT", "8085")
 	credsValue := util.Getenv("FIREBASE_CREDENTIALS", "")
 
-	// Support both JSON string and file path for credentials
 	var credOpt option.ClientOption
 	if strings.HasPrefix(strings.TrimSpace(credsValue), "{") {
 		credOpt = option.WithCredentialsJSON([]byte(credsValue))
@@ -225,7 +311,7 @@ func main() {
 
 	h := &handler{fs: fs}
 
-	// ── Subscribe to viewer_events Pub/Sub topic ───────────────────────────
+	// ── Pub/Sub subscriptions ──────────────────────────────────────────────
 	viewerSub := util.Getenv("VIEWER_SUB", "viewer-events-analytics-sub")
 	go func() {
 		log.Printf("analytics: listening on viewer sub: %s", viewerSub)
@@ -239,7 +325,6 @@ func main() {
 		}
 	}()
 
-	// ── Subscribe to stream_events Pub/Sub topic ───────────────────────────
 	streamSub := util.Getenv("STREAM_SUB", "stream-events-analytics-sub")
 	go func() {
 		log.Printf("analytics: listening on stream sub: %s", streamSub)
@@ -270,6 +355,7 @@ func main() {
 
 	v1 := r.PathPrefix("/api/v1").Subrouter()
 	v1.HandleFunc("/analytics/stream/{id}", h.getStreamStats).Methods(http.MethodGet)
+	v1.HandleFunc("/analytics/stream/{id}/viewers", h.getViewerHistory).Methods(http.MethodGet)
 
 	log.Printf("analytics-service listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, r); err != nil {

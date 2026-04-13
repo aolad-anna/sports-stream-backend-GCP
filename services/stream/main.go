@@ -1,14 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -23,6 +22,8 @@ import (
 	psclient "sports-stream-backend/pkg/pubsub"
 	"sports-stream-backend/pkg/util"
 )
+
+// ── Models ────────────────────────────────────────────────────────────────────
 
 type Stream struct {
 	ID             string    `firestore:"id"             json:"id"`
@@ -40,57 +41,13 @@ type CreateStreamRequest struct {
 	RTMPUrl string `json:"rtmpUrl"`
 }
 
-// ── ViewerRegistry ────────────────────────────────────────────────────────────
-
-type ViewerRegistry struct {
-	mu      sync.RWMutex
-	viewers map[string]map[string]bool
-}
-
-func newViewerRegistry() *ViewerRegistry {
-	return &ViewerRegistry{viewers: make(map[string]map[string]bool)}
-}
-
-func (r *ViewerRegistry) Add(streamID, uid string) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.viewers[streamID] == nil {
-		r.viewers[streamID] = make(map[string]bool)
-	}
-	if r.viewers[streamID][uid] {
-		return false
-	}
-	r.viewers[streamID][uid] = true
-	return true
-}
-
-func (r *ViewerRegistry) Remove(streamID, uid string) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if !r.viewers[streamID][uid] {
-		return false
-	}
-	delete(r.viewers[streamID], uid)
-	return true
-}
-
-func (r *ViewerRegistry) Count(streamID string) int {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return len(r.viewers[streamID])
-}
-
-func (r *ViewerRegistry) ClearStream(streamID string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	delete(r.viewers, streamID)
-}
-
 // ── Handler ───────────────────────────────────────────────────────────────────
+// ViewerRegistry is REMOVED.
+// Viewer join/leave idempotency is handled via Firestore subcollection
+// streams/{streamId}/viewers/{uid} — correct across ALL Cloud Run instances.
 
 type handler struct {
-	fs       *firestore.Client
-	registry *ViewerRegistry
+	fs *firestore.Client
 }
 
 func (h *handler) getUserRole(ctx context.Context, uid string) string {
@@ -104,6 +61,8 @@ func (h *handler) getUserRole(ctx context.Context, uid string) string {
 	snap.DataTo(&profile)
 	return profile.Role
 }
+
+// ── createStream ──────────────────────────────────────────────────────────────
 
 func (h *handler) createStream(w http.ResponseWriter, r *http.Request) {
 	uid, _ := middleware.UIDFromContext(r.Context())
@@ -120,24 +79,36 @@ func (h *handler) createStream(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 	streamID := fmt.Sprintf("stream_%d", now.UnixMilli())
 	stream := Stream{
-		ID: streamID, Title: req.Title, Status: "live",
-		ViewerCount: 0, BroadcasterUID: uid, CreatedAt: now, UpdatedAt: now,
+		ID:             streamID,
+		Title:          req.Title,
+		Status:         "live",
+		ViewerCount:    0,
+		BroadcasterUID: uid,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 	if _, err := h.fs.Collection("streams").Doc(streamID).Set(r.Context(), stream); err != nil {
 		jsonError(w, "failed to create stream", http.StatusInternalServerError)
 		return
 	}
-	go startPackager(streamID, req.RTMPUrl, h.fs)
+	go startTranscoder(streamID, req.RTMPUrl, h.fs)
 	go psclient.PublishEvent(context.Background(), "stream_events", map[string]any{
-		"eventType": "stream_started", "streamId": streamID,
-		"title": req.Title, "uid": uid, "timestamp": now.Format(time.RFC3339),
+		"eventType": "stream_started",
+		"streamId":  streamID,
+		"title":     req.Title,
+		"uid":       uid,
+		"timestamp": now.Format(time.RFC3339),
 	})
 	jsonOK(w, stream)
 }
 
+// ── listStreams ───────────────────────────────────────────────────────────────
+
 func (h *handler) listStreams(w http.ResponseWriter, r *http.Request) {
-	docs, err := h.fs.Collection("streams").Where("status", "==", "live").
-		Limit(50).Documents(r.Context()).GetAll()
+	docs, err := h.fs.Collection("streams").
+		Where("status", "==", "live").
+		Limit(50).
+		Documents(r.Context()).GetAll()
 	if err != nil {
 		jsonError(w, "failed to fetch streams", http.StatusInternalServerError)
 		return
@@ -151,6 +122,8 @@ func (h *handler) listStreams(w http.ResponseWriter, r *http.Request) {
 	}
 	jsonOK(w, streams)
 }
+
+// ── getStream ─────────────────────────────────────────────────────────────────
 
 func (h *handler) getStream(w http.ResponseWriter, r *http.Request) {
 	streamID := mux.Vars(r)["id"]
@@ -171,79 +144,132 @@ func (h *handler) getStream(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, s)
 }
 
+// ── joinStream ────────────────────────────────────────────────────────────────
+// Uses Firestore subcollection streams/{id}/viewers/{uid} for idempotency.
+// FIX 1: Checks stream status — cannot join an ended stream.
+// FIX 2: Transaction is safe across all Cloud Run instances.
+// FIX 3: Joining twice returns current count without double-incrementing.
+
 func (h *handler) joinStream(w http.ResponseWriter, r *http.Request) {
 	streamID := mux.Vars(r)["id"]
 	uid, _ := middleware.UIDFromContext(r.Context())
 
-	if added := h.registry.Add(streamID, uid); !added {
-		jsonOK(w, map[string]any{"joined": true, "viewerCount": h.registry.Count(streamID)})
-		return
-	}
+	streamRef := h.fs.Collection("streams").Doc(streamID)
+	viewerRef := streamRef.Collection("viewers").Doc(uid)
 
-	ref := h.fs.Collection("streams").Doc(streamID)
 	var newCount int
 	err := h.fs.RunTransaction(r.Context(), func(ctx context.Context, tx *firestore.Transaction) error {
-		snap, err := tx.Get(ref)
+		// Read stream doc first — check it exists and is still live
+		streamSnap, err := tx.Get(streamRef)
 		if err != nil {
 			return err
 		}
 		var s Stream
-		snap.DataTo(&s)
+		streamSnap.DataTo(&s)
+
+		// FIX 1: Reject join if stream has ended
+		if s.Status == "ended" {
+			return fmt.Errorf("stream has ended")
+		}
+
+		// Check if viewer already joined
+		viewerSnap, _ := tx.Get(viewerRef)
+		if viewerSnap.Exists() {
+			// Already joined — idempotent, return current count unchanged
+			newCount = s.ViewerCount
+			return nil
+		}
+
+		// New viewer — write presence doc and increment count
 		newCount = s.ViewerCount + 1
-		return tx.Update(ref, []firestore.Update{
+		tx.Set(viewerRef, map[string]any{
+			"uid":      uid,
+			"joinedAt": time.Now().UTC(),
+		})
+		return tx.Update(streamRef, []firestore.Update{
 			{Path: "viewerCount", Value: newCount},
 			{Path: "updatedAt", Value: time.Now().UTC()},
 		})
 	})
 	if err != nil {
-		h.registry.Remove(streamID, uid)
+		if err.Error() == "stream has ended" {
+			jsonError(w, "stream has ended", http.StatusGone)
+			return
+		}
 		jsonError(w, "failed to join stream", http.StatusInternalServerError)
 		return
 	}
 
+	// Pub/Sub — for analytics only (currentViewers, peakViewers, totalJoins)
 	go psclient.PublishEvent(context.Background(), "viewer_events", map[string]any{
-		"eventType": "viewer_join", "streamId": streamID,
-		"uid": uid, "timestamp": time.Now().UTC().Format(time.RFC3339),
+		"eventType": "viewer_join",
+		"streamId":  streamID,
+		"uid":       uid,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	})
 	jsonOK(w, map[string]any{"joined": true, "viewerCount": newCount})
 }
+
+// ── leaveStream ───────────────────────────────────────────────────────────────
+// Uses Firestore subcollection to check presence before decrementing.
+// FIX: Safe across all Cloud Run instances. Leaving twice has no effect.
+// Floor of 0 — viewerCount can never go negative.
 
 func (h *handler) leaveStream(w http.ResponseWriter, r *http.Request) {
 	streamID := mux.Vars(r)["id"]
 	uid, _ := middleware.UIDFromContext(r.Context())
 
-	if removed := h.registry.Remove(streamID, uid); !removed {
-		jsonOK(w, map[string]any{"left": true})
-		return
-	}
+	streamRef := h.fs.Collection("streams").Doc(streamID)
+	viewerRef := streamRef.Collection("viewers").Doc(uid)
 
-	ref := h.fs.Collection("streams").Doc(streamID)
+	var newCount int
 	err := h.fs.RunTransaction(r.Context(), func(ctx context.Context, tx *firestore.Transaction) error {
-		snap, err := tx.Get(ref)
+		// Check if viewer is actually present
+		viewerSnap, _ := tx.Get(viewerRef)
+		if !viewerSnap.Exists() {
+			// Not in stream — idempotent, nothing to do
+			return nil
+		}
+
+		// Read current stream count
+		streamSnap, err := tx.Get(streamRef)
 		if err != nil {
 			return err
 		}
 		var s Stream
-		snap.DataTo(&s)
-		newCount := s.ViewerCount - 1
+		streamSnap.DataTo(&s)
+
+		newCount = s.ViewerCount - 1
 		if newCount < 0 {
-			newCount = 0
+			newCount = 0 // floor at 0 — never go negative
 		}
-		return tx.Update(ref, []firestore.Update{
+
+		// Delete viewer presence doc
+		tx.Delete(viewerRef)
+
+		// Decrement viewerCount
+		return tx.Update(streamRef, []firestore.Update{
 			{Path: "viewerCount", Value: newCount},
 			{Path: "updatedAt", Value: time.Now().UTC()},
 		})
 	})
 	if err != nil {
 		log.Printf("leaveStream transaction error streamId=%s: %v", streamID, err)
+		jsonError(w, "failed to leave stream", http.StatusInternalServerError)
+		return
 	}
 
+	// Pub/Sub — for analytics only
 	go psclient.PublishEvent(context.Background(), "viewer_events", map[string]any{
-		"eventType": "viewer_leave", "streamId": streamID,
-		"uid": uid, "timestamp": time.Now().UTC().Format(time.RFC3339),
+		"eventType": "viewer_leave",
+		"streamId":  streamID,
+		"uid":       uid,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	})
-	jsonOK(w, map[string]any{"left": true})
+	jsonOK(w, map[string]any{"left": true, "viewerCount": newCount})
 }
+
+// ── getManifest ───────────────────────────────────────────────────────────────
 
 func (h *handler) getManifest(w http.ResponseWriter, r *http.Request) {
 	streamID := mux.Vars(r)["id"]
@@ -265,6 +291,9 @@ func (h *handler) getManifest(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]string{"streamId": streamID, "manifestUrl": s.HLSUrl})
 }
 
+// ── resetViewerCount ──────────────────────────────────────────────────────────
+// Admin only. Resets viewerCount to 0 and batch-deletes all viewer presence docs.
+
 func (h *handler) resetViewerCount(w http.ResponseWriter, r *http.Request) {
 	streamID := mux.Vars(r)["id"]
 	uid, _ := middleware.UIDFromContext(r.Context())
@@ -272,6 +301,7 @@ func (h *handler) resetViewerCount(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "admin only", http.StatusForbidden)
 		return
 	}
+
 	_, err := h.fs.Collection("streams").Doc(streamID).Update(r.Context(), []firestore.Update{
 		{Path: "viewerCount", Value: 0},
 		{Path: "updatedAt", Value: time.Now().UTC()},
@@ -280,60 +310,224 @@ func (h *handler) resetViewerCount(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to reset", http.StatusInternalServerError)
 		return
 	}
-	h.registry.ClearStream(streamID)
+
+	// FIX: Batch-delete all viewer presence docs (max 500 per batch)
+	go func() {
+		ctx := context.Background()
+		docs, err := h.fs.Collection("streams").Doc(streamID).
+			Collection("viewers").Documents(ctx).GetAll()
+		if err != nil {
+			log.Printf("resetViewerCount: failed to fetch viewers: %v", err)
+			return
+		}
+		if len(docs) == 0 {
+			return
+		}
+		batch := h.fs.Batch()
+		for i, d := range docs {
+			batch.Delete(d.Ref)
+			if (i+1)%500 == 0 {
+				if _, err := batch.Commit(ctx); err != nil {
+					log.Printf("resetViewerCount: batch commit error: %v", err)
+				}
+				batch = h.fs.Batch()
+			}
+		}
+		if len(docs)%500 != 0 {
+			if _, err := batch.Commit(ctx); err != nil {
+				log.Printf("resetViewerCount: final batch commit error: %v", err)
+			}
+		}
+		log.Printf("resetViewerCount: cleared %d viewer docs for streamId=%s", len(docs), streamID)
+	}()
+
 	jsonOK(w, map[string]any{"reset": true, "viewerCount": 0})
 }
 
-// ── FFmpeg packager ───────────────────────────────────────────────────────────
+// ── Cloud Transcoder API ──────────────────────────────────────────────────────
+// Replaces self-managed FFmpeg. Fully managed GCP encoding.
+// FIX 1: Captures job name from submit response — polls specific job URL.
+// FIX 2: Clears viewer subcollection when stream ends.
 
-func startPackager(streamID, rtmpURL string, fs *firestore.Client) {
+func startTranscoder(streamID, inputURI string, fs *firestore.Client) {
+	ctx := context.Background()
+	projectID := util.MustGetenv("GCP_PROJECT_ID")
 	gcsBucket := util.Getenv("GCS_BUCKET", "sports-stream-66553.appspot.com")
 	cdnBase := util.Getenv("CDN_BASE_URL", "https://storage.googleapis.com/"+gcsBucket)
-	outDir := fmt.Sprintf("/tmp/hls/%s", streamID)
+	location := util.Getenv("TRANSCODER_LOCATION", "europe-west1")
 
-	args := []string{
-		"-i", rtmpURL,
-		"-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
-		"-map", "0:v", "-map", "0:a", "-s:v:0", "1280x720", "-b:v:0", "1500k",
-		"-map", "0:v", "-map", "0:a", "-s:v:1", "854x480", "-b:v:1", "800k",
-		"-map", "0:v", "-map", "0:a", "-s:v:2", "640x360", "-b:v:2", "400k",
-		"-c:a", "aac", "-b:a", "128k",
-		"-f", "hls", "-hls_time", "2", "-hls_list_size", "5",
-		"-hls_flags", "delete_segments+append_list",
-		"-hls_segment_filename", outDir + "/seg_%v_%03d.ts",
-		"-master_pl_name", "index.m3u8",
-		"-var_stream_map", "v:0,a:0 v:1,a:1 v:2,a:2",
-		outDir + "/index.m3u8",
+	outputURI := fmt.Sprintf("gs://%s/hls/%s/", gcsBucket, streamID)
+	hlsURL := fmt.Sprintf("%s/hls/%s/index.m3u8", cdnBase, streamID)
+	parent := fmt.Sprintf("projects/%s/locations/%s", projectID, location)
+	submitURL := fmt.Sprintf("https://transcoder.googleapis.com/v1/%s/jobs", parent)
+
+	jobPayload := map[string]any{
+		"inputUri":  inputURI,
+		"outputUri": outputURI,
+		"elementaryStreams": []map[string]any{
+			{
+				"key": "video-720p",
+				"videoStream": map[string]any{
+					"h264": map[string]any{
+						"heightPixels": 720, "widthPixels": 1280,
+						"bitrateBps": 1500000, "frameRate": 30,
+					},
+				},
+			},
+			{
+				"key": "video-480p",
+				"videoStream": map[string]any{
+					"h264": map[string]any{
+						"heightPixels": 480, "widthPixels": 854,
+						"bitrateBps": 800000, "frameRate": 30,
+					},
+				},
+			},
+			{
+				"key": "video-360p",
+				"videoStream": map[string]any{
+					"h264": map[string]any{
+						"heightPixels": 360, "widthPixels": 640,
+						"bitrateBps": 400000, "frameRate": 30,
+					},
+				},
+			},
+			{
+				"key": "audio",
+				"audioStream": map[string]any{
+					"codec": "aac", "bitrateBps": 128000,
+				},
+			},
+		},
+		"muxStreams": []map[string]any{
+			{
+				"key": "hls-720p", "container": "ts",
+				"elementaryStreams": []string{"video-720p", "audio"},
+				"segmentSettings":   map[string]any{"segmentDuration": "2s"},
+			},
+			{
+				"key": "hls-480p", "container": "ts",
+				"elementaryStreams": []string{"video-480p", "audio"},
+				"segmentSettings":   map[string]any{"segmentDuration": "2s"},
+			},
+			{
+				"key": "hls-360p", "container": "ts",
+				"elementaryStreams": []string{"video-360p", "audio"},
+				"segmentSettings":   map[string]any{"segmentDuration": "2s"},
+			},
+		},
+		"manifests": []map[string]any{
+			{
+				"fileName":   "index.m3u8",
+				"type":       "HLS",
+				"muxStreams": []string{"hls-720p", "hls-480p", "hls-360p"},
+			},
+		},
 	}
 
-	cmd := exec.Command("ffmpeg", args...)
-	if err := cmd.Start(); err != nil {
-		log.Printf("ffmpeg start failed streamId=%s: %v", streamID, err)
+	body, err := json.Marshal(map[string]any{"job": jobPayload})
+	if err != nil {
+		log.Printf("transcoder: marshal failed streamId=%s: %v", streamID, err)
 		return
 	}
 
-	hlsURL := fmt.Sprintf("%s/%s/index.m3u8", cdnBase, streamID)
-	ctx := context.Background()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, submitURL, bytes.NewReader(body))
+	if err != nil {
+		log.Printf("transcoder: request build failed streamId=%s: %v", streamID, err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		log.Printf("transcoder: API call failed streamId=%s: %v", streamID, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		log.Printf("transcoder: API returned %d for streamId=%s", resp.StatusCode, streamID)
+		return
+	}
+
+	// FIX 1: Capture job name from submit response so we poll the correct URL
+	var jobResp map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&jobResp); err != nil {
+		log.Printf("transcoder: failed to decode job response streamId=%s: %v", streamID, err)
+		return
+	}
+	jobName, _ := jobResp["name"].(string) // e.g. "projects/xxx/locations/yyy/jobs/zzz"
+	if jobName == "" {
+		log.Printf("transcoder: no job name in response streamId=%s", streamID)
+		return
+	}
+	// Poll this specific job URL — not the list URL
+	jobURL := fmt.Sprintf("https://transcoder.googleapis.com/v1/%s", jobName)
+
+	log.Printf("transcoder: job submitted streamId=%s job=%s", streamID, jobName)
+
+	// Write HLS URL to Firestore immediately — ExoPlayer retries until segments ready
 	fs.Collection("streams").Doc(streamID).Update(ctx, []firestore.Update{
 		{Path: "hlsUrl", Value: hlsURL},
 		{Path: "updatedAt", Value: time.Now().UTC()},
 	})
 
-	if err := cmd.Wait(); err != nil {
-		log.Printf("ffmpeg exited streamId=%s", streamID)
-	}
+	// Poll specific job URL for completion
+	go func() {
+		for i := 0; i < 120; i++ { // every 5s, up to 10 minutes
+			time.Sleep(5 * time.Second)
 
-	fs.Collection("streams").Doc(streamID).Update(ctx, []firestore.Update{
-		{Path: "status", Value: "ended"},
-		{Path: "viewerCount", Value: 0},
-		{Path: "updatedAt", Value: time.Now().UTC()},
-	})
+			checkReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, jobURL, nil)
+			checkResp, err := httpClient.Do(checkReq)
+			if err != nil {
+				log.Printf("transcoder: poll error streamId=%s: %v", streamID, err)
+				continue
+			}
+			var result map[string]any
+			json.NewDecoder(checkResp.Body).Decode(&result)
+			checkResp.Body.Close()
 
-	psclient.PublishEvent(ctx, "stream_events", map[string]any{
-		"eventType": "stream_ended",
-		"streamId":  streamID,
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-	})
+			state, _ := result["state"].(string)
+			log.Printf("transcoder: job state=%s streamId=%s", state, streamID)
+
+			if state == "SUCCEEDED" || state == "FAILED" {
+				break
+			}
+		}
+
+		// Mark stream as ended
+		fs.Collection("streams").Doc(streamID).Update(ctx, []firestore.Update{
+			{Path: "status", Value: "ended"},
+			{Path: "viewerCount", Value: 0},
+			{Path: "updatedAt", Value: time.Now().UTC()},
+		})
+
+		// FIX 2: Batch-delete viewer subcollection when stream ends
+		viewerDocs, err := fs.Collection("streams").Doc(streamID).
+			Collection("viewers").Documents(ctx).GetAll()
+		if err == nil && len(viewerDocs) > 0 {
+			batch := fs.Batch()
+			for i, d := range viewerDocs {
+				batch.Delete(d.Ref)
+				if (i+1)%500 == 0 {
+					batch.Commit(ctx)
+					batch = fs.Batch()
+				}
+			}
+			if len(viewerDocs)%500 != 0 {
+				batch.Commit(ctx)
+			}
+			log.Printf("transcoder: cleared %d viewer docs for streamId=%s", len(viewerDocs), streamID)
+		}
+
+		// Publish stream_ended event
+		psclient.PublishEvent(ctx, "stream_events", map[string]any{
+			"eventType": "stream_ended",
+			"streamId":  streamID,
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		})
+	}()
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -344,17 +538,13 @@ func main() {
 	port := util.Getenv("PORT", "8082")
 	creds := util.Getenv("FIREBASE_CREDENTIALS", "")
 
-	// Firebase Admin SDK
 	if _, err := fbclient.InitClient(ctx, creds); err != nil {
 		log.Fatalf("firebase init: %v", err)
 	}
-
-	// Pub/Sub
 	if _, err := psclient.InitClient(ctx, projectID, creds); err != nil {
 		log.Fatalf("pubsub init: %v", err)
 	}
 
-	// Support both JSON string and file path for credentials
 	var fsOpts []option.ClientOption
 	if strings.HasPrefix(strings.TrimSpace(creds), "{") {
 		fsOpts = append(fsOpts, option.WithCredentialsJSON([]byte(creds)))
@@ -367,7 +557,7 @@ func main() {
 	}
 	defer fs.Close()
 
-	h := &handler{fs: fs, registry: newViewerRegistry()}
+	h := &handler{fs: fs}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
@@ -400,6 +590,8 @@ func main() {
 		log.Fatalf("ListenAndServe: %v", err)
 	}
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 func jsonOK(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
