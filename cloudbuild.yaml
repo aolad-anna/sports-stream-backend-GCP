@@ -1,0 +1,72 @@
+steps:
+  # Build each service image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'services/user/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/user-service', '.']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'services/stream/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/stream-service', '.']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'services/analytics/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/analytics-service', '.']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'services/notification/Dockerfile', '-t', 'gcr.io/$PROJECT_ID/notification-service', '.']
+
+  # Push images
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/user-service']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/stream-service']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/analytics-service']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/notification-service']
+
+  # Deploy each to Cloud Run — Cloud Run injects PORT=8080 automatically
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'user-service'
+      - '--image=gcr.io/$PROJECT_ID/user-service'
+      - '--region=europe-west1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,FIREBASE_CREDENTIALS=...'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'stream-service'
+      - '--image=gcr.io/$PROJECT_ID/stream-service'
+      - '--region=europe-west1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,...'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'analytics-service'
+      - '--image=gcr.io/$PROJECT_ID/analytics-service'
+      - '--region=europe-west1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,VIEWER_SUB=viewer-events-analytics-sub,STREAM_SUB=stream-events-analytics-sub,...'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'deploy'
+      - 'notification-service'
+      - '--image=gcr.io/$PROJECT_ID/notification-service'
+      - '--region=europe-west1'
+      - '--platform=managed'
+      - '--no-allow-unauthenticated'
+      - '--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,NOTIFICATION_SUB=notification-events-sub,...'
