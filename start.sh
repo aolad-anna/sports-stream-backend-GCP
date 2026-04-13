@@ -59,10 +59,10 @@ sleep 3
 # Use GATEWAY_PORT (saved before any PORT overrides above)
 # exec replaces this shell process — Cloud Run health check hits this
 echo "Starting gateway on :${GATEWAY_PORT}"
-exec PORT=${GATEWAY_PORT} \
-     USER_SERVICE_URL=http://127.0.0.1:8081 \
-     STREAM_SERVICE_URL=http://127.0.0.1:8082 \
-     ANALYTICS_SERVICE_URL=http://127.0.0.1:8085 \
-     NOTIFICATION_SERVICE_URL=http://127.0.0.1:8083 \
-     ADMIN_SERVICE_URL=http://127.0.0.1:8084 \
-     "$GATEWAY_BIN"
+export PORT="${GATEWAY_PORT}"
+export USER_SERVICE_URL="http://127.0.0.1:8081"
+export STREAM_SERVICE_URL="http://127.0.0.1:8082"
+export ANALYTICS_SERVICE_URL="http://127.0.0.1:8085"
+export NOTIFICATION_SERVICE_URL="http://127.0.0.1:8083"
+export ADMIN_SERVICE_URL="http://127.0.0.1:8084"
+exec "$GATEWAY_BIN"
