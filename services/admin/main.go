@@ -751,27 +751,65 @@ func adminPanelHTML() string {
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Admin</title>
 <style>
-body{margin:0;font-family:Palatino Linotype,serif;background:#f4f0e6;color:#1f2933}
-.wrap{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
-.side{background:#2f2a26;color:#f7efe1;padding:12px}
-.side button{display:block;width:100%;text-align:left;margin:6px 0;padding:8px;border:1px solid #4a4038;background:#332d28;color:#f7efe1;cursor:pointer}
-.side button.active{background:#b33a3a}
-.main{padding:14px}
-.card{background:#fffaf2;border:1px solid #dbcfbe;padding:12px}
-.toolbar input,.toolbar button{padding:7px;margin:4px;border:1px solid #dbcfbe}
-.toolbar button{background:#b33a3a;color:#fff;cursor:pointer}
-.tbl{width:100%;border-collapse:collapse;font-size:13px}
-.tbl td,.tbl th{border:1px solid #eadfce;padding:6px}
-.tbl th{background:#f6ecdd;text-align:left}
+body{margin:0;font-family:Palatino Linotype,serif;background:radial-gradient(circle at top,#f7f2e8 0,#efe4d3 42%,#e4d4bf 100%);color:#1f2933}
+.wrap{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.side{background:linear-gradient(180deg,#2c241f 0,#3d2f29 100%);color:#f8efe0;padding:18px;border-right:1px solid rgba(255,255,255,0.08)}
+.brand{font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:#d8c1a3;margin-bottom:18px}
+.side button{display:block;width:100%;text-align:left;margin:8px 0;padding:10px 12px;border:1px solid rgba(255,255,255,0.08);border-radius:14px;background:rgba(255,255,255,0.04);color:#f7efe1;cursor:pointer;transition:transform .15s ease,background .15s ease,border-color .15s ease}
+.side button:hover{transform:translateX(2px);background:rgba(255,255,255,0.08)}
+.side button.active{background:linear-gradient(135deg,#b33a3a 0,#dd6b47 100%);border-color:transparent;box-shadow:0 12px 24px rgba(179,58,58,0.22)}
+.main{padding:24px}
+.card{background:rgba(255,250,242,0.84);border:1px solid rgba(102,74,48,0.14);padding:18px;border-radius:24px;box-shadow:0 18px 48px rgba(75,52,33,0.08);backdrop-filter:blur(12px)}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px}
+.toolbar input,.toolbar button{padding:10px 12px;border:1px solid #d8c7b1;border-radius:12px;background:#fff9f1}
+.toolbar button{background:linear-gradient(135deg,#b33a3a 0,#d86c43 100%);color:#fff;cursor:pointer;border:none;box-shadow:0 10px 20px rgba(179,58,58,0.18)}
+.toolbar .subtle{background:#f3e9dc;color:#7f6143;box-shadow:none}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;background:#fffdf9;border-radius:18px;overflow:hidden}
+.tbl td,.tbl th{border-bottom:1px solid #f0e4d3;padding:10px 12px;vertical-align:top}
+.tbl th{background:#f9efe1;text-align:left;color:#6e5437;font-size:12px;letter-spacing:0.08em;text-transform:uppercase}
+.tbl tr:hover td{background:#fff6ec}
+.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px}
+.page-head p{margin:6px 0 0;color:#7b6753}
+.mini{font-size:12px;color:#8b7359}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:16px 0 20px}
+.stat-card{background:linear-gradient(180deg,#fffdf9 0,#fff3e5 100%);border:1px solid #eddcca;border-radius:18px;padding:14px 16px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.8)}
+.stat-label{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#8b7359}
+.stat-value{font-size:30px;line-height:1.1;margin-top:8px;color:#2d241d}
+.stat-foot{margin-top:8px;font-size:12px;color:#8a6c4f}
+.analytics-layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(280px,.85fr);gap:16px;align-items:start}
+.panel{background:#fffdf9;border:1px solid #eddcca;border-radius:20px;padding:16px}
+.panel h3{margin:0 0 6px;font-size:18px}
+.panel p{margin:0;color:#7a6248;font-size:13px}
+.leaderboard{display:grid;gap:10px;margin-top:14px}
+.leader-item{padding:12px 14px;border-radius:16px;background:linear-gradient(135deg,#fff4e7 0,#fffdfb 100%);border:1px solid #f0decb}
+.leader-top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:6px}
+.leader-title{font-weight:700;color:#34281e}
+.leader-meta{font-size:12px;color:#8a7053}
+.meter{height:10px;border-radius:999px;background:#f1e2d0;overflow:hidden;margin-top:10px}
+.meter span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#b33a3a 0,#f0aa52 100%)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;background:#efe3d3;color:#7f6143}
+.pill.live{background:#fee2d5;color:#a13e23}
+.muted{color:#8c7358}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.empty{padding:24px;border:1px dashed #ddcab4;border-radius:18px;background:#fffaf3;color:#85694f;text-align:center}
+.analytics-table td strong{display:block;margin-bottom:4px;color:#2d241d}
+.analytics-table td small{display:block;color:#8a6f53}
+@media (max-width: 980px){.wrap{grid-template-columns:1fr}.side{border-right:none;border-bottom:1px solid rgba(255,255,255,0.08)}.analytics-layout{grid-template-columns:1fr}.page-head{flex-direction:column}}
 </style></head><body>
-<div class="wrap"><div class="side" id="menu"></div><div class="main"><div class="card"><h2 id="title">Dashboard</h2><div id="toolbar" class="toolbar"></div><div id="body"></div><button onclick="logout()" style="margin-top:10px">Logout</button></div></div></div>
+<div class="wrap"><div class="side"><div class="brand">Sports Stream Admin</div><div id="menu"></div></div><div class="main"><div class="card"><h2 id="title">Dashboard</h2><div id="toolbar" class="toolbar"></div><div id="body"></div><button onclick="logout()" style="margin-top:16px">Logout</button></div></div></div>
 <script>
 var pages=['dashboard','users','streams','analytics','matches','notifications','health'];
 var curr='dashboard';
+var analyticsTimer=null;
 function menu(){var m=document.getElementById('menu');var h='';for(var i=0;i<pages.length;i++){var p=pages[i];h+='<button class="'+(p===curr?'active':'')+'" onclick="go(\''+p+'\')">'+p.toUpperCase()+'</button>';}m.innerHTML=h;}
 async function api(path,opts){opts=opts||{};var r=await fetch(path,{method:opts.method||'GET',headers:{'Content-Type':'application/json'},body:opts.body||undefined});var b=await r.json();if(!r.ok||!b.success)throw new Error(b.message||'failed');return b.data;}
+async function safeApi(path,fallback){try{return {ok:true,data:await api(path)};}catch(e){return {ok:false,data:fallback,error:(e&&e.message)?e.message:'failed'};}}
 function set(t,th,b){document.getElementById('title').textContent=t;document.getElementById('toolbar').innerHTML=th||'';document.getElementById('body').innerHTML=b||'';}
 function table(headers,rows){var h='<table class="tbl"><tr>';for(var i=0;i<headers.length;i++)h+='<th>'+headers[i]+'</th>';h+='</tr>'+rows+'</table>';return h;}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(ch){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch];});}
+function n(v){var num=Number(v||0);return isNaN(num)?'0':num.toLocaleString();}
+function fmtDate(v){if(!v)return 'No timestamp';var d=new Date(v);return isNaN(d.getTime())?String(v):d.toLocaleString();}
+function setAnalyticsRefresh(enabled){if(analyticsTimer){clearInterval(analyticsTimer);analyticsTimer=null;}if(enabled){analyticsTimer=setInterval(function(){if(curr==='analytics'){renderAnalytics(true).catch(function(e){console.error(e);});}},5000);}}
 async function renderDashboard(){var d=await api('/api/v1/admin/dashboard');set('Dashboard','<button onclick="renderDashboard()">Refresh</button>','Users: '+d.usersTotal+' | Admins: '+d.adminsTotal+' | Live Streams: '+d.liveStreams+' | Viewers: '+d.currentViewers+' | Total Joins: '+d.totalJoinsAll);} 
 async function renderUsers(){var u=await api('/api/v1/admin/users?limit=200');var t='<input id="u_uid" placeholder="uid"><input id="u_email" placeholder="email"><input id="u_name" placeholder="displayName"><input id="u_role" placeholder="role"><button onclick="createUser()">Create</button><button onclick="renderUsers()">Refresh</button>';var rows='';for(var i=0;i<u.length;i++){var x=u[i];rows+='<tr><td>'+x.uid+'</td><td>'+ (x.displayName||'') +'</td><td>'+ (x.email||'') +'</td><td><input id="role_'+x.uid+'" value="'+(x.role||'viewer')+'"></td><td><button onclick="saveRole(\''+x.uid+'\')">Save Role</button> <button onclick="delUser(\''+x.uid+'\')">Delete</button></td></tr>';}set('Users CRUD',t,table(['UID','Name','Email','Role','Actions'],rows));}
 async function createUser(){await api('/api/v1/admin/users',{method:'POST',body:JSON.stringify({uid:gid('u_uid'),email:gid('u_email'),displayName:gid('u_name'),role:gid('u_role')||'viewer'})});renderUsers();}
@@ -784,11 +822,69 @@ async function saveStream(id){await api('/api/v1/admin/streams/'+id,{method:'PAT
 async function endStream(id){await api('/api/v1/admin/streams/'+id+'/end',{method:'POST'});renderStreams();}
 async function resetViewers(id){await api('/api/v1/admin/streams/'+id+'/reset-viewers',{method:'POST'});renderStreams();}
 async function delStream(id){if(!confirm('Delete stream '+id+'?'))return;await api('/api/v1/admin/streams/'+id,{method:'DELETE'});renderStreams();}
-async function renderAnalytics(){var a=await api('/api/v1/admin/analytics?limit=200');var t='<input id="a_id" placeholder="streamId"><input id="a_cur" placeholder="current"><input id="a_peak" placeholder="peak"><input id="a_join" placeholder="joins"><button onclick="createAnalytics()">Create</button><button onclick="renderAnalytics()">Refresh</button>';var rows='';for(var i=0;i<a.length;i++){var x=a[i];rows+='<tr><td>'+x.streamId+'</td><td><input id="ac_'+x.streamId+'" value="'+(x.currentViewers||0)+'"></td><td><input id="ap_'+x.streamId+'" value="'+(x.peakViewers||0)+'"></td><td><input id="aj_'+x.streamId+'" value="'+(x.totalJoins||0)+'"></td><td><button onclick="saveAnalytics(\''+x.streamId+'\')">Save</button> <button onclick="delAnalytics(\''+x.streamId+'\')">Delete</button></td></tr>';}
-set('Analytics CRUD',t,table(['Stream','Current','Peak','Joins','Actions'],rows));}
-async function createAnalytics(){await api('/api/v1/admin/analytics',{method:'POST',body:JSON.stringify({streamId:gid('a_id'),currentViewers:Number(gid('a_cur')||0),peakViewers:Number(gid('a_peak')||0),totalJoins:Number(gid('a_join')||0)})});renderAnalytics();}
-async function saveAnalytics(id){await api('/api/v1/admin/analytics/'+id,{method:'PATCH',body:JSON.stringify({currentViewers:Number(gid('ac_'+id)||0),peakViewers:Number(gid('ap_'+id)||0),totalJoins:Number(gid('aj_'+id)||0)})});renderAnalytics();}
-async function delAnalytics(id){if(!confirm('Delete analytics '+id+'?'))return;await api('/api/v1/admin/analytics/'+id,{method:'DELETE'});renderAnalytics();}
+async function renderAnalytics(silent){
+set('Analytics Live', '<button onclick="renderAnalytics()">Refresh now</button><button class="subtle" type="button">Auto refresh every 5s</button>', '<div class="panel"><h3>Analytics Loading</h3><p>Fetching live telemetry data...</p></div>');
+var res=await Promise.all([
+safeApi('/api/v1/admin/analytics?limit=200',[]),
+safeApi('/api/v1/admin/analytics/top?limit=5',[]),
+safeApi('/api/v1/admin/streams?limit=200',[]),
+safeApi('/api/v1/admin/dashboard',{})
+]);
+var analytics=Array.isArray(res[0].data)?res[0].data:[];
+var top=Array.isArray(res[1].data)?res[1].data:[];
+var streams=Array.isArray(res[2].data)?res[2].data:[];
+var dashboard=res[3].data||{};
+var loadWarnings=[];
+for(var wi=0;wi<res.length;wi++){if(!res[wi].ok&&res[wi].error)loadWarnings.push(res[wi].error);}
+var byId={};
+for(var i=0;i<streams.length;i++){byId[streams[i].id]=streams[i];}
+analytics.sort(function(a,b){return Number(b.currentViewers||0)-Number(a.currentViewers||0)||Number(b.peakViewers||0)-Number(a.peakViewers||0)||Number(b.totalJoins||0)-Number(a.totalJoins||0);});
+var totalPeak=0,totalCurrent=0,totalJoins=0,liveTracked=0,lastUpdated='';
+for(var j=0;j<analytics.length;j++){
+var item=analytics[j];
+totalPeak+=Number(item.peakViewers||0);
+totalCurrent+=Number(item.currentViewers||0);
+totalJoins+=Number(item.totalJoins||0);
+if(Number(item.currentViewers||0)>0)liveTracked++;
+if(item.updatedAt&&(!lastUpdated||new Date(item.updatedAt)>new Date(lastUpdated)))lastUpdated=item.updatedAt;
+}
+var topStream=top.length?top[0]:null;
+var maxPeak=topStream?Math.max(Number(topStream.peakViewers||0),1):1;
+var summary='<div class="page-head"><div><div class="mini">Live telemetry</div><p>Read-only analytics refresh automatically every 5 seconds. No manual editing on this view.</p></div><div class="pill'+(analytics.length&&totalCurrent>0?' live':'')+'">'+(analytics.length&&totalCurrent>0?'live refresh on':'watching for updates')+'</div></div>'+
+'<div class="stat-grid">'+
+'<div class="stat-card"><div class="stat-label">Tracked Streams</div><div class="stat-value">'+n(analytics.length)+'</div><div class="stat-foot">'+n(liveTracked)+' with active viewers</div></div>'+
+'<div class="stat-card"><div class="stat-label">Current Viewers</div><div class="stat-value">'+n(totalCurrent)+'</div><div class="stat-foot">Dashboard reports '+n(dashboard.currentViewers||0)+' live viewers</div></div>'+
+'<div class="stat-card"><div class="stat-label">Peak Viewers</div><div class="stat-value">'+n(totalPeak)+'</div><div class="stat-foot">Cumulative peak across tracked streams</div></div>'+
+'<div class="stat-card"><div class="stat-label">Total Joins</div><div class="stat-value">'+n(totalJoins)+'</div><div class="stat-foot">Across all analytics documents</div></div>'+
+'</div>';
+var lead='';
+if(top.length){
+lead+='<div class="leaderboard">';
+for(var k=0;k<top.length;k++){
+var row=top[k];
+var st=byId[row.streamId]||{};
+var width=Math.max(8,Math.min(100,Math.round((Number(row.peakViewers||0)/maxPeak)*100)));
+lead+='<div class="leader-item"><div class="leader-top"><div><div class="leader-title">'+esc(st.title||row.streamId)+'</div><div class="leader-meta mono">'+esc(row.streamId)+'</div></div><div class="pill'+((st.status||'')==='live'?' live':'')+'">'+esc(st.status||'tracked')+'</div></div><div class="leader-meta">Peak '+n(row.peakViewers)+' · Current '+n(row.currentViewers)+' · Joins '+n(row.totalJoins)+'</div><div class="meter"><span style="width:'+width+'%"></span></div></div>';
+}
+lead+='</div>';
+} else {
+lead='<div class="empty">No analytics documents yet. Once viewers join streams, live telemetry will appear here automatically.</div>';
+}
+var rows='';
+for(var m=0;m<analytics.length;m++){
+var a=analytics[m];
+var s=byId[a.streamId]||{};
+var engagement=Number(a.peakViewers||0)>0?Math.round((Number(a.currentViewers||0)/Math.max(Number(a.peakViewers||0),1))*100):0;
+rows+='<tr><td><strong>'+esc(s.title||a.streamId)+'</strong><small class="mono">'+esc(a.streamId)+'</small></td><td><span class="pill'+((s.status||'')==='live'?' live':'')+'">'+esc(s.status||'unknown')+'</span><small>'+(s.broadcasterUid?esc(s.broadcasterUid):'No broadcaster')+'</small></td><td><strong>'+n(a.currentViewers)+'</strong><small>Live now</small></td><td><strong>'+n(a.peakViewers)+'</strong><small>Best moment</small></td><td><strong>'+n(a.totalJoins)+'</strong><small>Cumulative joins</small></td><td><strong>'+n(engagement)+'%</strong><small>Current vs peak</small></td><td><strong>'+fmtDate(a.updatedAt)+'</strong><small>Last event</small></td></tr>';
+}
+var detail=analytics.length?table(['Stream','Status','Current','Peak','Joins','Engagement','Updated'],rows):'<div class="empty">Waiting for analytics data.</div>';
+var warn='';
+if(loadWarnings.length){warn='<div class="panel" style="margin-bottom:14px"><h3>Partial Data Mode</h3><p class="muted">Some analytics sources are unavailable right now, but the dashboard is still visible. Last error: '+esc(loadWarnings[0])+'</p></div>';}
+var body=warn+summary+'<div class="analytics-layout"><div><div class="panel"><h3>Detailed Stream Telemetry</h3><p>Viewer counts, peak load, join volume, engagement ratio, and last event time for each tracked stream.</p><div style="margin-top:14px" class="analytics-table">'+detail+'</div></div></div><div><div class="panel"><h3>Top Performing Streams</h3><p>Streams ranked by peak viewers with live context from the stream service.</p>'+lead+'</div><div class="panel" style="margin-top:16px"><h3>Feed Status</h3><p>Last refresh: '+fmtDate(new Date().toISOString())+'</p><div class="stat-grid" style="margin-top:14px"><div class="stat-card"><div class="stat-label">Latest Event</div><div class="stat-value" style="font-size:20px">'+esc(fmtDate(lastUpdated))+'</div><div class="stat-foot">Newest analytics update timestamp</div></div><div class="stat-card"><div class="stat-label">Live Streams</div><div class="stat-value" style="font-size:20px">'+n(dashboard.liveStreams||0)+'</div><div class="stat-foot">From dashboard aggregate</div></div></div></div></div></div>';
+set('Analytics Live', '<button onclick="renderAnalytics()">Refresh now</button><button class="subtle" type="button">Auto refresh every 5s</button>', body);
+setAnalyticsRefresh(true);
+if(!silent){window.scrollTo({top:0,behavior:'smooth'});}
+}
 async function renderMatches(){var m=await api('/api/v1/admin/matches?limit=200');var t='<input id="m_t" placeholder="title"><input id="m_at" placeholder="scheduledAt RFC3339"><input id="m_s" placeholder="status"><button onclick="createMatch()">Create</button><button onclick="renderMatches()">Refresh</button>';var rows='';for(var i=0;i<m.length;i++){var x=m[i];rows+='<tr><td>'+x.id+'</td><td><input id="mt_'+x.id+'" value="'+(x.title||'')+'"></td><td><input id="ma_'+x.id+'" value="'+(x.scheduledAt||'')+'"></td><td><input id="ms_'+x.id+'" value="'+(x.status||'scheduled')+'"></td><td><button onclick="saveMatch(\''+x.id+'\')">Save</button> <button onclick="delMatch(\''+x.id+'\')">Delete</button></td></tr>';}
 set('Matches CRUD',t,table(['ID','Title','ScheduledAt','Status','Actions'],rows));}
 async function createMatch(){await api('/api/v1/admin/matches',{method:'POST',body:JSON.stringify({title:gid('m_t'),scheduledAt:gid('m_at'),status:gid('m_s')||'scheduled'})});renderMatches();}
@@ -798,7 +894,7 @@ async function renderNotifications(){set('Notifications','<input id="n_e" placeh
 async function sendNotification(){var d=await api('/api/v1/admin/notifications/send',{method:'POST',body:JSON.stringify({eventType:gid('n_e'),streamId:gid('n_id'),title:gid('n_t')})});document.getElementById('n_out').textContent=JSON.stringify(d,null,2);} 
 async function renderHealth(){var h=await api('/api/v1/admin/system/health');var rows='';for(var i=0;i<h.length;i++){rows+='<tr><td>'+h[i].name+'</td><td>'+h[i].status+'</td><td>'+h[i].url+'</td><td>'+(h[i].details||'')+'</td></tr>';}set('System Health','<button onclick="renderHealth()">Refresh</button>',table(['Service','Status','URL','Details'],rows));}
 function gid(id){var e=document.getElementById(id);return e?e.value.trim():'';}
-function go(p){curr=p;menu();var m={dashboard:renderDashboard,users:renderUsers,streams:renderStreams,analytics:renderAnalytics,matches:renderMatches,notifications:renderNotifications,health:renderHealth};m[p]().catch(function(e){alert(e.message);});}
+function go(p){setAnalyticsRefresh(false);curr=p;menu();var m={dashboard:renderDashboard,users:renderUsers,streams:renderStreams,analytics:renderAnalytics,matches:renderMatches,notifications:renderNotifications,health:renderHealth};m[p]().catch(function(e){alert(e.message);});}
 async function logout(){await fetch('/admin/logout',{method:'POST'});window.location.href='/admin/login';}
 menu();go('dashboard');
 </script></body></html>`
