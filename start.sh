@@ -11,8 +11,8 @@ GATEWAY_PORT=${PORT:-8080}
 echo "Gateway will listen on :${GATEWAY_PORT}"
 
 resolve_bin() {
-  local short_name="$1"
-  local long_name="$2"
+  short_name="$1"
+  long_name="$2"
   if [ -x "/usr/local/bin/${long_name}" ]; then
     echo "/usr/local/bin/${long_name}"
     return
