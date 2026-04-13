@@ -126,13 +126,12 @@ func main() {
 		port = "8080"
 	}
 
-	// NEW — read from environment (works on Cloud Run)
-	// NEW — read from environment (works on Cloud Run)
-	userProxy := newProxy(util.MustGetenv("USER_SERVICE_URL"))
-	streamProxy := newProxy(util.MustGetenv("STREAM_SERVICE_URL"))
-	analyticsProxy := newProxy(util.MustGetenv("ANALYTICS_SERVICE_URL"))
-	notificationProxy := newProxy(util.MustGetenv("NOTIFICATION_SERVICE_URL"))
-	adminProxy := newProxy(util.MustGetenv("ADMIN_SERVICE_URL"))
+	// Read from env when provided (Cloud Run), otherwise use local defaults.
+	userProxy := newProxy(util.Getenv("USER_SERVICE_URL", "http://127.0.0.1:8081"))
+	streamProxy := newProxy(util.Getenv("STREAM_SERVICE_URL", "http://127.0.0.1:8082"))
+	analyticsProxy := newProxy(util.Getenv("ANALYTICS_SERVICE_URL", "http://127.0.0.1:8085"))
+	notificationProxy := newProxy(util.Getenv("NOTIFICATION_SERVICE_URL", "http://127.0.0.1:8083"))
+	adminProxy := newProxy(util.Getenv("ADMIN_SERVICE_URL", "http://127.0.0.1:8084"))
 
 	//userProxy := newProxy("http://127.0.0.1:8081")
 	//streamProxy := newProxy("http://127.0.0.1:8082")
