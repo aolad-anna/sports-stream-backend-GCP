@@ -6,15 +6,6 @@
       "**/.*",
       "**/node_modules/**"
     ],
-    "cleanUrls": true,
-    "rewrites": [
-      {
-        "source": "**",
-        "run": {
-          "serviceId": "sports-stream-backend-staging",
-          "region": "europe-west1"
-        }
-      }
-    ]
+    "cleanUrls": true
   }
 }
