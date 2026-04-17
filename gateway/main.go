@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"html"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -24,10 +26,63 @@ func checkHealth(client *http.Client, endpoint string) serviceHealth {
 		return serviceHealth{Status: "down", URL: endpoint, Details: err.Error()}
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return serviceHealth{Status: "up", URL: endpoint}
 	}
-	return serviceHealth{Status: "down", URL: endpoint, Details: resp.Status}
+
+	return serviceHealth{
+		Status:  "down",
+		URL:     endpoint,
+		Details: resp.Status,
+	}
+}
+
+func renderHealthPage(overall string, services map[string]serviceHealth) string {
+	badgeClass := "warn"
+	badgeText := "System status: degraded"
+	if overall == "ok" {
+		badgeClass = "up"
+		badgeText = "System status: healthy"
+	}
+
+	order := []string{"user", "stream", "notification", "admin", "analytics"}
+	var cards strings.Builder
+	for _, name := range order {
+		svc := services[name]
+		className := "down"
+		if svc.Status == "up" {
+			className = "up"
+		}
+		cards.WriteString(fmt.Sprintf(
+			"<div class=\"card\"><div class=\"service\">%s</div><div class=\"pill %s\">%s</div><div class=\"meta\">%s</div><div class=\"small\">%s</div></div>",
+			html.EscapeString(strings.Title(name)+" service"),
+			className,
+			html.EscapeString(strings.ToUpper(svc.Status)),
+			html.EscapeString(svc.URL),
+			html.EscapeString(svc.Details),
+		))
+	}
+
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sports Stream Health</title>
+<style>
+*{box-sizing:border-box} body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#0f172a;color:#e2e8f0;padding:24px}
+.shell{max-width:1100px;margin:0 auto}.panel{background:#111827;border:1px solid #334155;border-radius:20px;padding:24px}
+.badge{display:inline-block;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:700;margin-bottom:16px}.badge.up{background:#153d2f;color:#86efac}.badge.warn{background:#4a2d13;color:#fdba74}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:18px}.card{background:#162033;border:1px solid #334155;border-radius:16px;padding:16px}
+.service{font-weight:700;margin-bottom:8px}.pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700}.pill.up{background:#153d2f;color:#86efac}.pill.down{background:#4c1d1d;color:#fca5a5}
+.meta{margin-top:10px;color:#cbd5e1;font-size:13px;word-break:break-word}.small{margin-top:8px;color:#94a3b8;font-size:12px;word-break:break-word}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}.btn{text-decoration:none;padding:10px 14px;border-radius:10px;background:#38bdf8;color:#082032;font-weight:700}
+</style>
+</head>
+<body>
+<div class="shell"><div class="panel"><div class="badge %s">%s</div><h1>Sports Stream Public Health</h1><p>This page is public and shows the live gateway and internal service health without login.</p><div class="grid">%s</div><div class="actions"><a class="btn" href="https://livestream.study/">Open Website</a></div></div></div>
+</body>
+</html>`, badgeClass, html.EscapeString(badgeText), cards.String())
 }
 
 const landingPage = `<!DOCTYPE html>
@@ -35,85 +90,27 @@ const landingPage = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sports Stream API</title>
+<title>Sports Stream Backend</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
-  .badge { display: inline-flex; align-items: center; gap: 8px; background: #134e4a; border: 1px solid #14b8a6; border-radius: 100px; padding: 6px 16px; font-size: 12px; color: #5eead4; letter-spacing: 0.5px; margin-bottom: 32px; }
-  .dot { width: 7px; height: 7px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.3)} }
-  h1 { font-size: 42px; font-weight: 700; color: #f8fafc; margin-bottom: 8px; letter-spacing: -0.5px; }
-  .subtitle { font-size: 16px; color: #64748b; margin-bottom: 48px; }
-  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%; max-width: 680px; margin-bottom: 40px; }
-  .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
-  .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-  .dot-color { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .card-title { font-size: 13px; font-weight: 600; color: #f1f5f9; }
-  .card-port { font-size: 11px; color: #475569; font-family: monospace; }
-  .endpoint { font-size: 11px; color: #64748b; margin: 3px 0; font-family: monospace; }
-  .endpoint span { color: #38bdf8; }
-  .divider { width: 100%; max-width: 680px; border: none; border-top: 1px solid #1e293b; margin: 8px 0 32px; }
-  .links { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer; border: none; transition: opacity 0.15s; }
-  .btn:hover { opacity: 0.85; }
-  .btn-primary { background: #0ea5e9; color: #fff; }
-  .btn-accent { background: #f97316; color: #fff; }
-  .btn-green { background: #10b981; color: #fff; }
-  .btn-purple { background: #8b5cf6; color: #fff; }
-  .btn-outline { background: transparent; color: #94a3b8; border: 1px solid #334155; }
-  .footer { margin-top: 48px; font-size: 11px; color: #334155; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .shell{max-width:860px;width:100%;background:#111827;border:1px solid #334155;border-radius:24px;padding:32px;box-shadow:0 20px 70px rgba(0,0,0,.3)}
+  .badge{display:inline-block;padding:7px 12px;border-radius:999px;background:#0b3b4a;color:#67e8f9;font-size:12px;font-weight:700;margin-bottom:16px}
+  h1{font-size:40px;margin-bottom:10px}.lead{color:#cbd5e1;line-height:1.6;margin-bottom:20px}
+  .links{display:flex;gap:12px;flex-wrap:wrap}.btn{display:inline-block;text-decoration:none;padding:12px 16px;border-radius:10px;font-weight:700}.primary{background:#38bdf8;color:#082032}.secondary{background:#162033;color:#e5eefc;border:1px solid #334155}
 </style>
 </head>
 <body>
-<div class="badge"><span class="dot"></span>All systems operational</div>
-<h1>Sports Stream API</h1>
-<p class="subtitle">Cloud-Native Live Sports Streaming Platform &middot; CCC&apos;26</p>
-<div class="grid">
-  <div class="card">
-    <div class="card-header"><div class="dot-color" style="background:#8b5cf6"></div><div><div class="card-title">user-service</div><div class="card-port">:8081</div></div></div>
-    <div class="endpoint"><span>POST</span> /api/v1/auth/verify</div>
-    <div class="endpoint"><span>GET</span>  /api/v1/users/me</div>
-    <div class="endpoint"><span>PATCH</span> /api/v1/users/me</div>
-  </div>
-  <div class="card">
-    <div class="card-header"><div class="dot-color" style="background:#f97316"></div><div><div class="card-title">stream-service</div><div class="card-port">:8082</div></div></div>
-    <div class="endpoint"><span>GET</span>  /api/v1/streams</div>
-    <div class="endpoint"><span>POST</span> /api/v1/streams</div>
-    <div class="endpoint"><span>POST</span> /api/v1/streams/:id/join</div>
-  </div>
-  <div class="card">
-    <div class="card-header"><div class="dot-color" style="background:#ef4444"></div><div><div class="card-title">notification-service</div><div class="card-port">:8083</div></div></div>
-    <div class="endpoint"><span>POST</span> /api/v1/notifications/test</div>
-    <div class="endpoint"><span>GET</span>  /health/notification</div>
-  </div>
-  <div class="card">
-    <div class="card-header"><div class="dot-color" style="background:#b91c1c"></div><div><div class="card-title">admin-service</div><div class="card-port">:8084</div></div></div>
-    <div class="endpoint"><span>GET</span>  /admin</div>
-    <div class="endpoint"><span>GET</span>  /api/v1/admin/dashboard</div>
-    <div class="endpoint"><span>PATCH</span> /api/v1/admin/users/:uid/role</div>
-  </div>
-  <div class="card">
-    <div class="card-header"><div class="dot-color" style="background:#10b981"></div><div><div class="card-title">analytics-service</div><div class="card-port">:8085</div></div></div>
-    <div class="endpoint"><span>GET</span>  /api/v1/analytics/stream/:id</div>
-    <div class="endpoint"><span>GET</span>  /health/analytics</div>
-  </div>
-  <div class="card">
-    <div class="card-header"><div class="dot-color" style="background:#0ea5e9"></div><div><div class="card-title">video-service</div><div class="card-port">:8086</div></div></div>
-    <div class="endpoint"><span>POST</span> /api/v1/videos/upload-url</div>
-    <div class="endpoint"><span>POST</span> /api/v1/videos/:id/transcode</div>
-    <div class="endpoint"><span>GET</span>  /api/v1/videos/:id/manifest</div>
+<div class="shell">
+  <div class="badge">Backend gateway</div>
+  <h1>Sports Stream Backend</h1>
+  <p class="lead">This Cloud Run service powers the Sports Stream platform API. For the public visitor experience, use the main website. For backend status, open the public health page.</p>
+  <div class="links">
+    <a class="btn primary" href="https://livestream.study/">Open Main Website</a>
+    <a class="btn secondary" href="/health">View Public Health</a>
+    <a class="btn secondary" href="/api/v1/streams">View Streams API</a>
   </div>
 </div>
-<hr class="divider">
-<div class="links">
-  <a class="btn btn-primary" href="/health">🔍 Health Check</a>
-  <a class="btn btn-green" href="/dashboard">📊 Dashboard</a>
-  <a class="btn btn-accent" href="/upload">📹 Upload Video</a>
-  <a class="btn btn-outline" href="/api/v1/streams">Live Streams</a>
-  <a class="btn btn-outline" href="/api/v1/videos">Videos</a>
-  <a class="btn btn-outline" href="/admin">Admin Console</a>
-</div>
-<p class="footer">Sports Stream Platform &middot; CCC&apos;26 Cloud Computing Competition &middot; March 2026</p>
 </body>
 </html>`
 
@@ -123,6 +120,7 @@ func newProxy(target string) *httputil.ReverseProxy {
 }
 
 func main() {
+	// Scalingo injects PORT — must listen on it or app times out
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = os.Getenv("GATEWAY_PORT")
@@ -131,17 +129,19 @@ func main() {
 		port = "8080"
 	}
 
+	// Read from env when provided (Cloud Run), otherwise use local defaults.
 	userProxy := newProxy(util.Getenv("USER_SERVICE_URL", "http://127.0.0.1:8081"))
 	streamProxy := newProxy(util.Getenv("STREAM_SERVICE_URL", "http://127.0.0.1:8082"))
 	analyticsProxy := newProxy(util.Getenv("ANALYTICS_SERVICE_URL", "http://127.0.0.1:8085"))
 	notificationProxy := newProxy(util.Getenv("NOTIFICATION_SERVICE_URL", "http://127.0.0.1:8083"))
 	adminProxy := newProxy(util.Getenv("ADMIN_SERVICE_URL", "http://127.0.0.1:8084"))
-	videoProxy := newProxy(util.Getenv("VIDEO_SERVICE_URL", "http://127.0.0.1:8086"))
 
+	//userProxy := newProxy("http://127.0.0.1:8081")
+	//streamProxy := newProxy("http://127.0.0.1:8082")
+	//notificationProxy := newProxy("http://127.0.0.1:8083")
+	//adminProxy := newProxy("http://127.0.0.1:8084")
+	//analyticsProxy := newProxy("http://127.0.0.1:8085")
 	healthClient := &http.Client{Timeout: 2 * time.Second}
-
-	// Serve public folder for static files
-	http.Handle("/public/", http.StripPrefix("/public/", http.FileServer(http.Dir("/public"))))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -155,36 +155,39 @@ func main() {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Write([]byte(landingPage))
 
-		case path == "/favicon.ico":
-			http.NotFound(w, r)
-
-		// ── Static pages ───────────────────────────────────────────────────
-		case path == "/upload":
-			http.ServeFile(w, r, "/public/upload.html")
-
-		case path == "/dashboard":
-			http.ServeFile(w, r, "/public/dashboard.html")
-
 		// ── Health checks ──────────────────────────────────────────────────
 		case path == "/health":
-			w.Header().Set("Content-Type", "application/json")
 			services := map[string]serviceHealth{
 				"user":         checkHealth(healthClient, "http://127.0.0.1:8081/health"),
 				"stream":       checkHealth(healthClient, "http://127.0.0.1:8082/health"),
 				"notification": checkHealth(healthClient, "http://127.0.0.1:8083/health"),
 				"admin":        checkHealth(healthClient, "http://127.0.0.1:8084/health"),
 				"analytics":    checkHealth(healthClient, "http://127.0.0.1:8085/health"),
-				"video":        checkHealth(healthClient, "http://127.0.0.1:8086/health"),
 			}
+
 			overall := "ok"
 			for _, s := range services {
 				if s.Status != "up" {
 					overall = "degraded"
-					// FIX: removed w.WriteHeader(503) — don't fail health check
-					// when one service is down. Return 200 with degraded status.
 					break
 				}
 			}
+
+			statusCode := http.StatusOK
+			if overall != "ok" {
+				statusCode = http.StatusServiceUnavailable
+			}
+
+			accept := strings.ToLower(r.Header.Get("Accept"))
+			if strings.Contains(accept, "text/html") {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.WriteHeader(statusCode)
+				_, _ = w.Write([]byte(renderHealthPage(overall, services)))
+				break
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(statusCode)
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"gateway":  overall,
 				"services": services,
@@ -209,14 +212,6 @@ func main() {
 		case path == "/health/analytics":
 			r.URL.Path = "/health"
 			analyticsProxy.ServeHTTP(w, r)
-
-		case path == "/health/video":
-			r.URL.Path = "/health"
-			videoProxy.ServeHTTP(w, r)
-
-		// ── video-service ──────────────────────────────────────────────────
-		case strings.HasPrefix(path, "/api/v1/videos"):
-			videoProxy.ServeHTTP(w, r)
 
 		// ── notification-service ───────────────────────────────────────────
 		case strings.HasPrefix(path, "/api/v1/notifications"):
@@ -244,12 +239,14 @@ func main() {
 		case strings.HasPrefix(path, "/api/v1/users"):
 			userProxy.ServeHTTP(w, r)
 
+		// ── default → user-service ─────────────────────────────────────────
 		default:
 			userProxy.ServeHTTP(w, r)
 		}
 	})
 
 	log.Printf(`{"gateway":"started","port":%q}`, port)
+
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("gateway: %v", err)
 	}
