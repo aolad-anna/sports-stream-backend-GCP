@@ -21,14 +21,14 @@
     ],
     "rewrites": [
       {
-        "source": "/health",
+        "source": "/health-api",
         "run": {
           "serviceId": "sports-stream-backend-staging",
           "region": "europe-west3"
         }
       },
       {
-        "source": "/health/**",
+        "source": "/health-api/**",
         "run": {
           "serviceId": "sports-stream-backend-staging",
           "region": "europe-west3"

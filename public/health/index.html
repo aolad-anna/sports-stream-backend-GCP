@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sports Stream Public Health</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter, Arial, sans-serif; background:#0f172a; color:#e5eefc; min-height:100vh; padding:24px; }
+    .shell { max-width:1100px; margin:0 auto; }
+    .panel { background:#111827; border:1px solid #334155; border-radius:20px; padding:24px; }
+    .badge { display:inline-block; padding:7px 12px; border-radius:999px; font-size:12px; font-weight:700; margin-bottom:14px; }
+    .up { background:#153d2f; color:#86efac; }
+    .down { background:#4c1d1d; color:#fca5a5; }
+    .warn { background:#4a2d13; color:#fdba74; }
+    .muted { color:#cbd5e1; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-top:18px; }
+    .card { background:#162033; border:1px solid #334155; border-radius:16px; padding:16px; }
+    .service { font-weight:800; margin-bottom:8px; }
+    .meta { color:#cbd5e1; font-size:13px; line-height:1.5; word-break:break-word; margin-top:10px; }
+    .actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:18px; }
+    .btn { text-decoration:none; padding:11px 15px; border-radius:10px; font-weight:700; background:#38bdf8; color:#082032; }
+    pre { white-space:pre-wrap; word-break:break-word; background:#09111f; border:1px solid #334155; border-radius:14px; padding:14px; margin-top:16px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="panel">
+      <div id="summaryBadge" class="badge warn">Checking live system health...</div>
+      <h1>Sports Stream Public Health</h1>
+      <p class="muted">This page is public and shows the real gateway and service health without login.</p>
+      <div id="grid" class="grid"></div>
+      <pre id="rawBox">Loading live health data...</pre>
+      <div class="card" style="margin-top:16px;">
+        <div class="service">Live health fallback</div>
+        <div class="meta">If the proxy is still updating, the raw public health endpoint is shown below automatically.</div>
+        <iframe title="Public Health JSON" src="https://sports-stream-backend-staging-364914796779.europe-west3.run.app/health" style="width:100%;min-height:320px;border:1px solid #334155;border-radius:12px;background:#fff;margin-top:12px;"></iframe>
+      </div>
+      <div class="actions">
+        <a class="btn" href="/">Back to homepage</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(ch){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch];});}
+    async function loadHealth(){
+      const badge = document.getElementById('summaryBadge');
+      const grid = document.getElementById('grid');
+      const rawBox = document.getElementById('rawBox');
+      try {
+        const res = await fetch('/health-api', { cache: 'no-store' });
+        const text = await res.text();
+        rawBox.textContent = text;
+        let data = null;
+        try { data = JSON.parse(text); } catch (_) {}
+        if (!data || !data.services) {
+          badge.className = 'badge warn';
+          badge.textContent = 'Health endpoint responded, but the format was unexpected';
+          grid.innerHTML = '<div class="card">Unable to parse the live health response.</div>';
+          return;
+        }
+        const overall = data.gateway || 'unknown';
+        badge.className = 'badge ' + (overall === 'ok' ? 'up' : 'down');
+        badge.textContent = overall === 'ok' ? 'All public services look healthy' : 'System is degraded but publicly visible';
+        const cards = [];
+        cards.push('<div class="card"><div class="service">Gateway</div><div class="badge '+(overall === 'ok' ? 'up' : 'down')+'">'+esc(overall.toUpperCase())+'</div><div class="meta">Main public API gateway status.</div></div>');
+        Object.keys(data.services).sort().forEach(function(name){
+          const svc = data.services[name] || {};
+          const isUp = svc.status === 'up';
+          cards.push('<div class="card"><div class="service">'+esc(name)+'</div><div class="badge '+(isUp ? 'up' : 'down')+'">'+esc(String(svc.status || 'unknown').toUpperCase())+'</div><div class="meta">'+esc(svc.url || '')+(svc.details ? '<br><br>'+esc(svc.details) : '')+'</div></div>');
+        });
+        grid.innerHTML = cards.join('');
+      } catch (e) {
+        badge.className = 'badge down';
+        badge.textContent = 'Could not load public health data';
+        rawBox.textContent = e.message;
+        grid.innerHTML = '<div class="card">The health endpoint could not be reached right now.</div>';
+      }
+    }
+    loadHealth();
+    setInterval(loadHealth, 10000);
+  </script>
+</body>
+</html>

@@ -156,7 +156,7 @@ func main() {
 			w.Write([]byte(landingPage))
 
 		// ── Health checks ──────────────────────────────────────────────────
-		case path == "/health":
+		case path == "/health" || path == "/health-api":
 			services := map[string]serviceHealth{
 				"user":         checkHealth(healthClient, "http://127.0.0.1:8081/health"),
 				"stream":       checkHealth(healthClient, "http://127.0.0.1:8082/health"),
