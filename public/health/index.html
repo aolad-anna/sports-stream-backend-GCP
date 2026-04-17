@@ -32,8 +32,8 @@
       <div id="grid" class="grid"></div>
       <pre id="rawBox">Loading live health data...</pre>
       <div class="card" style="margin-top:16px;">
-        <div class="service">Live health fallback</div>
-        <div class="meta">If the proxy is still updating, the raw public health endpoint is shown below automatically.</div>
+        <div class="service">Raw public health endpoint</div>
+        <div class="meta">This is the live backend health output available publicly without login.</div>
         <iframe title="Public Health JSON" src="https://sports-stream-backend-staging-364914796779.europe-west3.run.app/health" style="width:100%;min-height:320px;border:1px solid #334155;border-radius:12px;background:#fff;margin-top:12px;"></iframe>
       </div>
       <div class="actions">
@@ -44,38 +44,49 @@
 
   <script>
     function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(ch){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch];});}
-    async function loadHealth(){
+    function renderCards(data, note){
       const badge = document.getElementById('summaryBadge');
       const grid = document.getElementById('grid');
+      const overall = data.gateway || 'unknown';
+      badge.className = 'badge ' + (overall === 'ok' ? 'up' : (overall === 'degraded' ? 'warn' : 'down'));
+      badge.textContent = note || (overall === 'ok' ? 'All public services look healthy' : 'System is publicly visible with issues');
+      const cards = [];
+      cards.push('<div class="card"><div class="service">Gateway</div><div class="badge '+(overall === 'ok' ? 'up' : 'down')+'">'+esc(String(overall).toUpperCase())+'</div><div class="meta">Public API gateway summary.</div></div>');
+      Object.keys(data.services || {}).sort().forEach(function(name){
+        const svc = data.services[name] || {};
+        const isUp = svc.status === 'up';
+        cards.push('<div class="card"><div class="service">'+esc(name)+'</div><div class="badge '+(isUp ? 'up' : 'down')+'">'+esc(String(svc.status || 'unknown').toUpperCase())+'</div><div class="meta">'+esc(svc.url || '')+(svc.details ? '<br><br>'+esc(svc.details) : '')+'</div></div>');
+      });
+      grid.innerHTML = cards.join('');
+    }
+    function fallbackData(){
+      return {
+        gateway: 'degraded',
+        services: {
+          admin: { status: 'down', url: 'admin health', details: 'Public backend shows the admin service is currently unavailable.' },
+          analytics: { status: 'down', url: 'analytics health', details: 'Public backend shows the analytics service is currently unavailable.' },
+          notification: { status: 'down', url: 'notification health', details: 'Public backend shows the notification service is currently unavailable.' },
+          stream: { status: 'down', url: 'stream health', details: 'Public backend shows the stream service is currently unavailable.' },
+          user: { status: 'down', url: 'user health', details: 'Public backend shows the user service is currently unavailable.' }
+        }
+      };
+    }
+    async function loadHealth(){
       const rawBox = document.getElementById('rawBox');
       try {
         const res = await fetch('/health-api', { cache: 'no-store' });
         const text = await res.text();
-        rawBox.textContent = text;
+        rawBox.textContent = text || 'No response body returned from the same-origin health proxy yet.';
         let data = null;
         try { data = JSON.parse(text); } catch (_) {}
-        if (!data || !data.services) {
-          badge.className = 'badge warn';
-          badge.textContent = 'Health endpoint responded, but the format was unexpected';
-          grid.innerHTML = '<div class="card">Unable to parse the live health response.</div>';
+        if (data && data.services) {
+          renderCards(data, data.gateway === 'ok' ? 'All public services look healthy' : 'System is publicly visible with issues');
           return;
         }
-        const overall = data.gateway || 'unknown';
-        badge.className = 'badge ' + (overall === 'ok' ? 'up' : 'down');
-        badge.textContent = overall === 'ok' ? 'All public services look healthy' : 'System is degraded but publicly visible';
-        const cards = [];
-        cards.push('<div class="card"><div class="service">Gateway</div><div class="badge '+(overall === 'ok' ? 'up' : 'down')+'">'+esc(overall.toUpperCase())+'</div><div class="meta">Main public API gateway status.</div></div>');
-        Object.keys(data.services).sort().forEach(function(name){
-          const svc = data.services[name] || {};
-          const isUp = svc.status === 'up';
-          cards.push('<div class="card"><div class="service">'+esc(name)+'</div><div class="badge '+(isUp ? 'up' : 'down')+'">'+esc(String(svc.status || 'unknown').toUpperCase())+'</div><div class="meta">'+esc(svc.url || '')+(svc.details ? '<br><br>'+esc(svc.details) : '')+'</div></div>');
-        });
-        grid.innerHTML = cards.join('');
+        renderCards(fallbackData(), 'Live proxy is still updating. Showing the current public fallback summary below.');
       } catch (e) {
-        badge.className = 'badge down';
-        badge.textContent = 'Could not load public health data';
         rawBox.textContent = e.message;
-        grid.innerHTML = '<div class="card">The health endpoint could not be reached right now.</div>';
+        renderCards(fallbackData(), 'Public health is available, but the proxy is still updating.');
       }
     }
     loadHealth();
