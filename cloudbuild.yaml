@@ -1,6 +1,6 @@
 substitutions:
   _REGION: europe-west1
-  _SERVICE_NAME: sports-stream-backend
+  _SERVICE_NAME: sports-stream-backend-staging
   _REPOSITORY: sports-stream
   _ENV: production
   _ADMIN_PANEL_USERNAME: admin

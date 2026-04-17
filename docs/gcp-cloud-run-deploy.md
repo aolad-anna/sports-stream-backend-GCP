@@ -63,7 +63,7 @@ Run from repository root:
 
 ```bash
 gcloud builds submit --config cloudbuild.yaml \
-  --substitutions=_REGION=europe-west1,_SERVICE_NAME=sports-stream-backend,_REPOSITORY=sports-stream,_ENV=production
+  --substitutions=_REGION=europe-west1,_SERVICE_NAME=sports-stream-backend-staging,_REPOSITORY=sports-stream,_ENV=production
 ```
 
 Optional substitutions:
@@ -79,7 +79,7 @@ Optional substitutions:
 ## 5) Verify deployment
 
 ```bash
-SERVICE_URL="$(gcloud run services describe sports-stream-backend --region=europe-west1 --format='value(status.url)')"
+SERVICE_URL="$(gcloud run services describe sports-stream-backend-staging --region=europe-west1 --format='value(status.url)')"
 
 curl -sS "$SERVICE_URL/health"
 curl -i "$SERVICE_URL/admin/login"
@@ -119,7 +119,7 @@ Use Cloud Build Trigger so every push to `master` deploys automatically.
 
 4. Add substitutions (optional, recommended):
   - `_REGION=europe-west1`
-  - `_SERVICE_NAME=sports-stream-backend`
+  - `_SERVICE_NAME=sports-stream-backend-staging`
   - `_REPOSITORY=sports-stream`
   - `_ENV=production`
 
@@ -149,7 +149,7 @@ Runtime service account still needs secret access from step 3 above:
 3. Confirm Cloud Run service URL responds:
 
 ```bash
-SERVICE_URL="$(gcloud run services describe sports-stream-backend --region=europe-west1 --format='value(status.url)')"
+SERVICE_URL="$(gcloud run services describe sports-stream-backend-staging --region=europe-west1 --format='value(status.url)')"
 curl -sS "$SERVICE_URL/health"
 ```
 
