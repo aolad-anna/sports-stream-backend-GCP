@@ -3,18 +3,128 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sports Stream Backend</title>
+  <title>Sports Stream Live</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; display: grid; place-items: center; min-height: 100vh; margin: 0; }
-    .card { max-width: 720px; padding: 24px; border-radius: 16px; background: #1e293b; border: 1px solid #334155; }
-    a { color: #38bdf8; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: linear-gradient(135deg, #081120 0%, #0f172a 45%, #111827 100%);
+      color: #e5eefc;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .shell {
+      width: 100%;
+      max-width: 980px;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+    }
+    .hero {
+      padding: 40px 28px;
+      background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.22), transparent 30%),
+                  radial-gradient(circle at bottom left, rgba(34, 197, 94, 0.18), transparent 32%);
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(34, 197, 94, 0.18);
+      color: #86efac;
+      font-size: 12px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 40px;
+      line-height: 1.1;
+    }
+    p.lead {
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 17px;
+      max-width: 720px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      padding: 0 28px 28px;
+    }
+    .card {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      border-radius: 18px;
+      padding: 18px;
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+    .card p {
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 0 28px 32px;
+    }
+    a.btn {
+      text-decoration: none;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    a.primary { background: #38bdf8; color: #082032; }
+    a.secondary { background: transparent; color: #e5eefc; border: 1px solid rgba(148, 163, 184, 0.28); }
+    .footer {
+      padding: 0 28px 28px;
+      color: #94a3b8;
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Sports Stream Backend</h1>
-    <p>This Hosting site proxies requests to the Cloud Run backend.</p>
-    <p>Try the health endpoint at <a href="/health">/health</a>.</p>
+  <div class="shell">
+    <div class="hero">
+      <div class="badge">Live Sports Platform</div>
+      <h1>Sports Stream</h1>
+      <p class="lead">A cloud-native streaming backend for live sports events, admin operations, analytics, notifications, and real-time stream management.</p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Live Streams</h3>
+        <p>Browse and manage active sports streams with API-driven playback support.</p>
+      </div>
+      <div class="card">
+        <h3>Admin Console</h3>
+        <p>Access admin tools for users, streams, matches, health checks, and analytics.</p>
+      </div>
+      <div class="card">
+        <h3>Realtime Analytics</h3>
+        <p>Track viewers, joins, stream health, and activity signals in one place.</p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <a class="btn primary" href="/admin/login">Open Admin</a>
+      <a class="btn secondary" href="/health">System Health</a>
+    </div>
+
+    <div class="footer">
+      Powered by Firebase Hosting and Google Cloud backend services.
+    </div>
   </div>
 </body>
 </html>
