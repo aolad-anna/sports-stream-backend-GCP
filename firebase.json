@@ -7,6 +7,18 @@
       "**/node_modules/**"
     ],
     "cleanUrls": true,
+    "redirects": [
+      {
+        "source": "/admin",
+        "destination": "https://sports-stream-backend-staging.osc-fr1.scalingo.io/admin",
+        "type": 302
+      },
+      {
+        "source": "/admin/:path*",
+        "destination": "https://sports-stream-backend-staging.osc-fr1.scalingo.io/admin/:path",
+        "type": 302
+      }
+    ],
     "rewrites": [
       {
         "source": "**",
