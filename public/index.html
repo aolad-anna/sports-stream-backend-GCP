@@ -6,125 +6,120 @@
   <title>Sports Stream Live</title>
   <style>
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Inter, Arial, sans-serif;
-      background: linear-gradient(135deg, #081120 0%, #0f172a 45%, #111827 100%);
-      color: #e5eefc;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
-    .shell {
-      width: 100%;
-      max-width: 980px;
-      background: rgba(15, 23, 42, 0.88);
-      border: 1px solid rgba(148, 163, 184, 0.22);
-      border-radius: 24px;
-      overflow: hidden;
-      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
-    }
-    .hero {
-      padding: 40px 28px;
-      background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.22), transparent 30%),
-                  radial-gradient(circle at bottom left, rgba(34, 197, 94, 0.18), transparent 32%);
-    }
-    .badge {
-      display: inline-block;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: rgba(34, 197, 94, 0.18);
-      color: #86efac;
-      font-size: 12px;
-      margin-bottom: 16px;
-    }
-    h1 {
-      margin: 0 0 12px;
-      font-size: 40px;
-      line-height: 1.1;
-    }
-    p.lead {
-      margin: 0;
-      color: #cbd5e1;
-      font-size: 17px;
-      max-width: 720px;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
-      padding: 0 28px 28px;
-    }
-    .card {
-      background: rgba(30, 41, 59, 0.9);
-      border: 1px solid rgba(148, 163, 184, 0.18);
-      border-radius: 18px;
-      padding: 18px;
-    }
-    .card h3 {
-      margin: 0 0 8px;
-      font-size: 16px;
-    }
-    .card p {
-      margin: 0;
-      color: #cbd5e1;
-      font-size: 14px;
-      line-height: 1.5;
-    }
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      padding: 0 28px 32px;
-    }
-    a.btn {
-      text-decoration: none;
-      padding: 12px 16px;
-      border-radius: 12px;
-      font-weight: 600;
-    }
-    a.primary { background: #38bdf8; color: #082032; }
-    a.secondary { background: transparent; color: #e5eefc; border: 1px solid rgba(148, 163, 184, 0.28); }
-    .footer {
-      padding: 0 28px 28px;
-      color: #94a3b8;
-      font-size: 13px;
-    }
+    body { margin: 0; font-family: Inter, Arial, sans-serif; background: linear-gradient(135deg,#081120 0%,#0f172a 45%,#111827 100%); color: #e5eefc; }
+    .shell { width: 100%; max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .hero { background: rgba(15,23,42,.86); border: 1px solid rgba(148,163,184,.18); border-radius: 24px; padding: 32px; box-shadow: 0 24px 80px rgba(0,0,0,.28); }
+    .badge { display: inline-block; padding: 6px 12px; border-radius: 999px; background: rgba(34,197,94,.18); color: #86efac; font-size: 12px; margin-bottom: 14px; }
+    h1 { margin: 0 0 10px; font-size: 42px; }
+    .lead { margin: 0; color: #cbd5e1; max-width: 780px; font-size: 17px; }
+    .topbar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-top:20px; }
+    .actions { display:flex; flex-wrap:wrap; gap:12px; }
+    .btn { border:none; border-radius: 12px; padding: 12px 16px; font-weight: 700; text-decoration: none; cursor: pointer; }
+    .primary { background:#38bdf8; color:#082032; }
+    .secondary { background:transparent; color:#e5eefc; border:1px solid rgba(148,163,184,.28); }
+    .ghost { background:#1e293b; color:#e5eefc; border:1px solid rgba(148,163,184,.2); }
+    .userbox { color:#cbd5e1; font-size:14px; }
+    .section { margin-top: 20px; background: rgba(15,23,42,.82); border: 1px solid rgba(148,163,184,.18); border-radius: 20px; padding: 22px; }
+    .section h2 { margin: 0 0 8px; }
+    .muted { color:#94a3b8; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap:16px; margin-top:16px; }
+    .card { background: rgba(30,41,59,.92); border: 1px solid rgba(148,163,184,.16); border-radius: 16px; padding:16px; }
+    .card h3 { margin:0 0 8px; font-size: 17px; }
+    .meta { color:#cbd5e1; font-size:14px; line-height:1.55; }
+    .empty { padding:16px; border-radius:14px; background:#162033; color:#cbd5e1; margin-top:12px; }
+    .footer { padding: 24px 0 12px; color:#94a3b8; font-size:13px; }
   </style>
+  <script defer src="/__/firebase/8.10.1/firebase-app.js"></script>
+  <script defer src="/__/firebase/8.10.1/firebase-auth.js"></script>
+  <script defer src="/__/firebase/8.10.1/firebase-firestore.js"></script>
+  <script defer src="/__/firebase/init.js"></script>
 </head>
 <body>
   <div class="shell">
     <div class="hero">
       <div class="badge">Live Sports Platform</div>
       <h1>Sports Stream</h1>
-      <p class="lead">A cloud-native streaming backend for live sports events, admin operations, analytics, notifications, and real-time stream management.</p>
-    </div>
-
-    <div class="grid">
-      <div class="card">
-        <h3>Live Streams</h3>
-        <p>Browse and manage active sports streams with API-driven playback support.</p>
-      </div>
-      <div class="card">
-        <h3>Admin Console</h3>
-        <p>Access admin tools for users, streams, matches, health checks, and analytics.</p>
-      </div>
-      <div class="card">
-        <h3>Realtime Analytics</h3>
-        <p>Track viewers, joins, stream health, and activity signals in one place.</p>
+      <p class="lead">Watch live sports events, explore upcoming matches, sign in with Google, and access the admin and health views from one Google-hosted domain.</p>
+      <div class="topbar">
+        <div class="actions">
+          <a class="btn primary" href="/admin">Admin Panel</a>
+          <a class="btn secondary" href="/health">Server Health</a>
+          <button class="btn ghost" id="googleLoginBtn">Sign in with Google</button>
+          <button class="btn ghost" id="logoutBtn" style="display:none">Logout</button>
+        </div>
+        <div class="userbox" id="userBox">Sign in to view the live match list.</div>
       </div>
     </div>
 
-    <div class="actions">
-      <a class="btn primary" href="/admin/login">Open Admin</a>
-      <a class="btn secondary" href="/health">System Health</a>
+    <div class="section">
+      <h2>Live Match List</h2>
+      <div class="muted">This list is loaded directly from Firebase after Google sign-in.</div>
+      <div id="matchList" class="grid"></div>
+      <div id="matchEmpty" class="empty">Sign in with Google to load match and stream data.</div>
     </div>
 
-    <div class="footer">
-      Powered by Firebase Hosting and Google Cloud backend services.
+    <div class="section">
+      <h2>Platform Highlights</h2>
+      <div class="grid">
+        <div class="card"><h3>Google Sign-In</h3><div class="meta">Use the button above to authenticate with Firebase Auth and access the match list.</div></div>
+        <div class="card"><h3>Admin Console</h3><div class="meta">Open the admin dashboard at <strong>/admin</strong> for internal operations and oversight.</div></div>
+        <div class="card"><h3>System Health</h3><div class="meta">Visit <strong>/health</strong> to view the hosted system status page.</div></div>
+      </div>
     </div>
+
+    <div class="footer">Powered by Firebase Hosting and Google services for the Sports Stream platform.</div>
   </div>
+
+  <script>
+    function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(ch){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch];});}
+    function fmtDate(v){if(!v)return 'TBD'; var d = v && typeof v.toDate === 'function' ? v.toDate() : new Date(v); return isNaN(d.getTime()) ? 'TBD' : d.toLocaleString();}
+    function renderMatches(items){
+      const list=document.getElementById('matchList');
+      const empty=document.getElementById('matchEmpty');
+      if(!items.length){list.innerHTML=''; empty.textContent='No matches found yet for this account.'; return;}
+      empty.style.display='none';
+      list.innerHTML=items.map(function(m){
+        return '<div class="card"><h3>'+esc(m.title || 'Untitled Match')+'</h3><div class="meta">Status: '+esc(m.status || 'scheduled')+'<br>Scheduled: '+esc(fmtDate(m.scheduledAt || m.createdAt))+'</div></div>';
+      }).join('');
+    }
+    window.addEventListener('load', function(){
+      const loginBtn=document.getElementById('googleLoginBtn');
+      const logoutBtn=document.getElementById('logoutBtn');
+      const userBox=document.getElementById('userBox');
+      function onReady(){
+        if(!window.firebase || !firebase.apps.length){ userBox.textContent='Firebase is still loading...'; return; }
+        const auth=firebase.auth();
+        const db=firebase.firestore();
+        loginBtn.onclick=async function(){
+          const provider=new firebase.auth.GoogleAuthProvider();
+          try { await auth.signInWithPopup(provider); } catch(e) { userBox.textContent='Google sign-in failed: '+e.message; }
+        };
+        logoutBtn.onclick=function(){ auth.signOut(); };
+        auth.onAuthStateChanged(async function(user){
+          if(!user){
+            userBox.textContent='Sign in with Google to load your match list.';
+            logoutBtn.style.display='none';
+            loginBtn.style.display='inline-block';
+            renderMatches([]);
+            document.getElementById('matchEmpty').style.display='block';
+            return;
+          }
+          loginBtn.style.display='none';
+          logoutBtn.style.display='inline-block';
+          userBox.textContent='Signed in as '+(user.displayName || user.email || user.uid);
+          try {
+            const snap=await db.collection('matches').orderBy('scheduledAt').limit(20).get();
+            const items=snap.docs.map(function(doc){ return doc.data(); });
+            renderMatches(items);
+          } catch(e) {
+            document.getElementById('matchList').innerHTML='';
+            document.getElementById('matchEmpty').style.display='block';
+            document.getElementById('matchEmpty').textContent='Could not load matches yet: '+e.message;
+          }
+        });
+      }
+      setTimeout(onReady, 600);
+    });
+  </script>
 </body>
 </html>

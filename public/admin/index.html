@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sports Stream Admin</title>
+  <style>
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Inter,Arial,sans-serif; background:#0f172a; color:#e5eefc; padding:24px; }
+    .shell { max-width:1100px; margin:0 auto; }
+    .panel { background:#1e293b; border:1px solid #334155; border-radius:20px; padding:24px; }
+    .top { display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; align-items:center; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; }
+    .btn { border:none; border-radius:12px; padding:11px 15px; font-weight:700; cursor:pointer; text-decoration:none; }
+    .primary { background:#38bdf8; color:#082032; }
+    .secondary { background:#162033; color:#e5eefc; border:1px solid #334155; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-top:18px; }
+    .card { background:#162033; border:1px solid #334155; border-radius:16px; padding:16px; }
+    .num { font-size:28px; font-weight:800; margin-top:6px; }
+    .muted { color:#cbd5e1; }
+    .list { margin-top:18px; display:grid; gap:12px; }
+    .row { background:#162033; border:1px solid #334155; border-radius:14px; padding:14px; }
+    .hidden { display:none; }
+  </style>
+  <script defer src="/__/firebase/8.10.1/firebase-app.js"></script>
+  <script defer src="/__/firebase/8.10.1/firebase-auth.js"></script>
+  <script defer src="/__/firebase/8.10.1/firebase-firestore.js"></script>
+  <script defer src="/__/firebase/init.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <div class="panel">
+      <div class="top">
+        <div>
+          <h1 style="margin:0">Admin Panel</h1>
+          <div class="muted" id="welcome">Sign in with Google to continue.</div>
+        </div>
+        <div class="actions">
+          <a class="btn secondary" href="/">Homepage</a>
+          <a class="btn secondary" href="/health">Health</a>
+          <button class="btn primary" id="loginBtn">Sign in with Google</button>
+          <button class="btn secondary hidden" id="logoutBtn">Logout</button>
+        </div>
+      </div>
+
+      <div id="accessBox" class="card" style="margin-top:18px;">
+        Admin access is verified from your Firebase account role.
+      </div>
+
+      <div id="dashboard" class="hidden">
+        <div class="grid">
+          <div class="card"><div class="muted">Users</div><div class="num" id="userCount">0</div></div>
+          <div class="card"><div class="muted">Matches</div><div class="num" id="matchCount">0</div></div>
+          <div class="card"><div class="muted">Streams</div><div class="num" id="streamCount">0</div></div>
+          <div class="card"><div class="muted">Analytics Records</div><div class="num" id="analyticsCount">0</div></div>
+        </div>
+
+        <h2 style="margin-top:24px;">Recent Matches</h2>
+        <div id="matchRows" class="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(ch){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch];});}
+    function fmtDate(v){if(!v)return 'TBD'; var d=v&&typeof v.toDate==='function'?v.toDate():new Date(v); return isNaN(d.getTime())?'TBD':d.toLocaleString();}
+    window.addEventListener('load', function(){
+      setTimeout(function(){
+        if(!window.firebase || !firebase.apps.length){ return; }
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const accessBox = document.getElementById('accessBox');
+        const dashboard = document.getElementById('dashboard');
+
+        loginBtn.onclick = async function(){
+          const provider = new firebase.auth.GoogleAuthProvider();
+          try { await auth.signInWithPopup(provider); } catch(e) { accessBox.textContent = 'Sign-in failed: ' + e.message; }
+        };
+        logoutBtn.onclick = function(){ auth.signOut(); };
+
+        auth.onAuthStateChanged(async function(user){
+          if(!user){
+            document.getElementById('welcome').textContent = 'Sign in with Google to continue.';
+            accessBox.textContent = 'Admin access is verified from your Firebase account role.';
+            dashboard.classList.add('hidden');
+            logoutBtn.classList.add('hidden');
+            loginBtn.classList.remove('hidden');
+            return;
+          }
+
+          document.getElementById('welcome').textContent = 'Signed in as ' + (user.displayName || user.email || user.uid);
+          logoutBtn.classList.remove('hidden');
+          loginBtn.classList.add('hidden');
+
+          try {
+            const profile = await db.collection('users').doc(user.uid).get();
+            const role = profile.exists ? (profile.data().role || 'viewer') : 'viewer';
+            if(role !== 'admin') {
+              accessBox.textContent = 'Access denied. Your current role is: ' + role;
+              dashboard.classList.add('hidden');
+              return;
+            }
+
+            accessBox.textContent = 'Admin access granted.';
+            dashboard.classList.remove('hidden');
+
+            const [usersSnap, matchesSnap, streamsSnap, analyticsSnap] = await Promise.all([
+              db.collection('users').get(),
+              db.collection('matches').limit(20).get(),
+              db.collection('streams').limit(20).get(),
+              db.collection('analytics').limit(20).get()
+            ]);
+
+            document.getElementById('userCount').textContent = usersSnap.size;
+            document.getElementById('matchCount').textContent = matchesSnap.size;
+            document.getElementById('streamCount').textContent = streamsSnap.size;
+            document.getElementById('analyticsCount').textContent = analyticsSnap.size;
+
+            const rows = matchesSnap.docs.map(function(doc){
+              const m = doc.data();
+              return '<div class="row"><strong>'+esc(m.title || 'Untitled Match')+'</strong><div class="muted">Status: '+esc(m.status || 'scheduled')+' · Time: '+esc(fmtDate(m.scheduledAt || m.createdAt))+'</div></div>';
+            }).join('') || '<div class="row">No matches available yet.</div>';
+            document.getElementById('matchRows').innerHTML = rows;
+          } catch(e) {
+            accessBox.textContent = 'Could not load admin data: ' + e.message;
+            dashboard.classList.add('hidden');
+          }
+        });
+      }, 600);
+    });
+  </script>
+</body>
+</html>

@@ -3,19 +3,54 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sports Stream Status</title>
+  <title>Sports Stream Health</title>
   <style>
-    body { margin: 0; font-family: Inter, Arial, sans-serif; background: #0f172a; color: #e5eefc; min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-    .card { max-width: 700px; width: 100%; background: #1e293b; border: 1px solid #334155; border-radius: 20px; padding: 28px; }
-    h1 { margin: 0 0 12px; }
-    p { color: #cbd5e1; line-height: 1.6; }
+    body { margin:0; font-family: Inter, Arial, sans-serif; background:#0f172a; color:#e5eefc; min-height:100vh; padding:24px; }
+    .shell { max-width:1000px; margin:0 auto; }
+    .panel { background:#1e293b; border:1px solid #334155; border-radius:20px; padding:24px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-top:18px; }
+    .card { background:#162033; border:1px solid #334155; border-radius:16px; padding:16px; }
+    .ok { color:#86efac; }
+    .muted { color:#cbd5e1; }
   </style>
+  <script defer src="/__/firebase/8.10.1/firebase-app.js"></script>
+  <script defer src="/__/firebase/8.10.1/firebase-auth.js"></script>
+  <script defer src="/__/firebase/8.10.1/firebase-firestore.js"></script>
+  <script defer src="/__/firebase/init.js"></script>
 </head>
 <body>
-  <div class="card">
-    <h1>System Status</h1>
-    <p>The public site is live on Firebase Hosting and the backend is being finalized on Google Cloud.</p>
-    <p>Please check back shortly for live API status on the GCP deployment.</p>
+  <div class="shell">
+    <div class="panel">
+      <h1>System Health</h1>
+      <p class="muted">This status page checks the Firebase-hosted site and the project data layer on Google infrastructure.</p>
+      <div class="grid" id="cards">
+        <div class="card"><strong>Hosting</strong><div class="ok">Online</div></div>
+        <div class="card"><strong>Firebase Project</strong><div class="ok">sports-stream-66553</div></div>
+        <div class="card"><strong>Authentication</strong><div id="authState">Checking...</div></div>
+        <div class="card"><strong>Firestore Data</strong><div id="dataState">Checking...</div></div>
+      </div>
+    </div>
   </div>
+  <script>
+    window.addEventListener('load', function(){
+      setTimeout(function(){
+        if(!window.firebase || !firebase.apps.length){ document.getElementById('authState').textContent='Not ready'; document.getElementById('dataState').textContent='Not ready'; return; }
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        auth.onAuthStateChanged(async function(user){
+          document.getElementById('authState').textContent = user ? 'Signed in' : 'Public mode';
+          try {
+            const [streams, matches] = await Promise.all([
+              db.collection('streams').limit(1).get(),
+              db.collection('matches').limit(1).get()
+            ]);
+            document.getElementById('dataState').textContent = 'Connected';
+          } catch (e) {
+            document.getElementById('dataState').textContent = user ? ('Limited: '+e.message) : 'Sign in for deeper checks';
+          }
+        });
+      }, 500);
+    });
+  </script>
 </body>
 </html>
