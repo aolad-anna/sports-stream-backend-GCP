@@ -157,7 +157,7 @@ func handleNotificationEvent(data []byte) bool {
 
 func main() {
 	ctx := context.Background()
-	projectID := util.MustGetenv("GCP_PROJECT_ID")
+	projectID := util.ProjectID()
 	credsFile := util.Getenv("FIREBASE_CREDENTIALS", "")
 	notifSub := util.Getenv("NOTIFICATION_SUB", "notification-events-sub")
 	port := util.Getenv("PORT", "8083")
@@ -170,11 +170,14 @@ func main() {
 		log.Fatalf("pubsub init: %v", err)
 	}
 
-	// Start Pub/Sub subscriber in background
+	// Start Pub/Sub subscriber in background without killing the HTTP service on transient errors.
 	go func() {
-		log.Printf(`{"service":"notification-service","level":"info","msg":"listening","subscription":%q}`, notifSub)
-		if err := psclient.Subscribe(ctx, notifSub, handleNotificationEvent); err != nil {
-			log.Fatalf("subscription error: %v", err)
+		for {
+			log.Printf(`{"service":"notification-service","level":"info","msg":"listening","subscription":%q}`, notifSub)
+			if err := psclient.Subscribe(ctx, notifSub, handleNotificationEvent); err != nil {
+				log.Printf("notification-service: subscription error: %v — retrying in 5s", err)
+				time.Sleep(5 * time.Second)
+			}
 		}
 	}()
 

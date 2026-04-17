@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"strings"
 
 	"cloud.google.com/go/pubsub"
 	"google.golang.org/api/option"
+
+	"sports-stream-backend/pkg/util"
 )
 
 var client *pubsub.Client
@@ -17,10 +18,12 @@ var client *pubsub.Client
 func InitClient(ctx context.Context, projectID string, credsFile string) (*pubsub.Client, error) {
 	var opts []option.ClientOption
 	if credsFile != "" {
-		if strings.HasPrefix(strings.TrimSpace(credsFile), "{") {
+		if util.LooksLikeJSONCredential(credsFile) {
 			opts = append(opts, option.WithCredentialsJSON([]byte(credsFile)))
-		} else {
+		} else if util.FileExists(credsFile) {
 			opts = append(opts, option.WithCredentialsFile(credsFile))
+		} else {
+			log.Printf(`{"service":"pubsub","level":"warn","msg":"credential path not found, falling back to default credentials","path":%q}`, credsFile)
 		}
 	}
 	var err error

@@ -3,11 +3,12 @@ package firebase
 import (
 	"context"
 	"log"
-	"strings"
 
 	fb "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/auth"
 	"google.golang.org/api/option"
+
+	"sports-stream-backend/pkg/util"
 )
 
 var app *fb.App
@@ -21,12 +22,12 @@ func InitClient(ctx context.Context, creds string) (*fb.App, error) {
 	var opts []option.ClientOption
 
 	if creds != "" {
-		if strings.HasPrefix(strings.TrimSpace(creds), "{") {
-			// Raw JSON content (e.g. from FIREBASE_CREDENTIALS env var)
+		if util.LooksLikeJSONCredential(creds) {
 			opts = append(opts, option.WithCredentialsJSON([]byte(creds)))
-		} else {
-			// File path
+		} else if util.FileExists(creds) {
 			opts = append(opts, option.WithCredentialsFile(creds))
+		} else {
+			log.Printf(`{"service":"firebase","level":"warn","msg":"credential path not found, falling back to default credentials","path":%q}`, creds)
 		}
 	}
 

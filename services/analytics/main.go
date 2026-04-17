@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -281,15 +280,17 @@ func (h *handler) getViewerHistory(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	ctx := context.Background()
-	projectID := util.MustGetenv("GCP_PROJECT_ID")
+	projectID := util.ProjectID()
 	port := util.Getenv("PORT", "8085")
 	credsValue := util.Getenv("FIREBASE_CREDENTIALS", "")
 
 	var credOpt option.ClientOption
-	if strings.HasPrefix(strings.TrimSpace(credsValue), "{") {
+	if util.LooksLikeJSONCredential(credsValue) {
 		credOpt = option.WithCredentialsJSON([]byte(credsValue))
-	} else if credsValue != "" {
+	} else if util.FileExists(credsValue) {
 		credOpt = option.WithCredentialsFile(credsValue)
+	} else if credsValue != "" {
+		log.Printf("analytics-service: credential file %q not found; falling back to default credentials", credsValue)
 	}
 
 	if _, err := fbclient.InitClient(ctx, credsValue); err != nil {

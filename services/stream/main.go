@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -396,7 +395,7 @@ func startTranscoder(streamID, inputURI string, fs *firestore.Client) {
 
 func main() {
 	ctx := context.Background()
-	projectID := util.MustGetenv("GCP_PROJECT_ID")
+	projectID := util.ProjectID()
 	port := util.Getenv("PORT", "8082")
 	creds := util.Getenv("FIREBASE_CREDENTIALS", "")
 
@@ -407,10 +406,12 @@ func main() {
 		log.Fatalf("pubsub init: %v", err)
 	}
 	var fsOpts []option.ClientOption
-	if strings.HasPrefix(strings.TrimSpace(creds), "{") {
+	if util.LooksLikeJSONCredential(creds) {
 		fsOpts = append(fsOpts, option.WithCredentialsJSON([]byte(creds)))
-	} else if creds != "" {
+	} else if util.FileExists(creds) {
 		fsOpts = append(fsOpts, option.WithCredentialsFile(creds))
+	} else if creds != "" {
+		log.Printf("stream-service: credential file %q not found; falling back to default credentials", creds)
 	}
 	fs, err := firestore.NewClient(ctx, projectID, fsOpts...)
 	if err != nil {

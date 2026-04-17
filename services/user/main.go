@@ -205,7 +205,7 @@ func (h *handler) updateMe(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	ctx := context.Background()
-	projectID := util.MustGetenv("GCP_PROJECT_ID")
+	projectID := util.ProjectID()
 	port := util.Getenv("PORT", "8081")
 	credsFile := util.Getenv("FIREBASE_CREDENTIALS", "")
 
@@ -217,10 +217,12 @@ func main() {
 	// Firestore — pass credentials explicitly
 	var fsOpts []option.ClientOption
 	if credsFile != "" {
-		if strings.HasPrefix(strings.TrimSpace(credsFile), "{") {
+		if util.LooksLikeJSONCredential(credsFile) {
 			fsOpts = append(fsOpts, option.WithCredentialsJSON([]byte(credsFile)))
-		} else {
+		} else if util.FileExists(credsFile) {
 			fsOpts = append(fsOpts, option.WithCredentialsFile(credsFile))
+		} else {
+			log.Printf("user-service: credential file %q not found; falling back to default credentials", credsFile)
 		}
 	}
 	fs, err := firestore.NewClient(ctx, projectID, fsOpts...)

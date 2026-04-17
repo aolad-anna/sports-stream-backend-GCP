@@ -80,6 +80,30 @@ func readEnvFile(path string) error {
 	return scanner.Err()
 }
 
+// ProjectID returns the configured GCP project ID, with sensible Cloud fallback.
+func ProjectID() string {
+	for _, key := range []string{"GCP_PROJECT_ID", "GOOGLE_CLOUD_PROJECT", "GCLOUD_PROJECT"} {
+		if v := os.Getenv(key); v != "" {
+			return v
+		}
+	}
+	return "sports-stream-66553"
+}
+
+// LooksLikeJSONCredential reports whether the credential value is raw JSON.
+func LooksLikeJSONCredential(v string) bool {
+	return strings.HasPrefix(strings.TrimSpace(v), "{")
+}
+
+// FileExists reports whether a non-directory file exists on disk.
+func FileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
 // MustGetenv returns the value of key or fatals if empty.
 func MustGetenv(key string) string {
 	v := os.Getenv(key)
