@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -31,10 +32,16 @@ func checkHealth(client *http.Client, endpoint string) serviceHealth {
 		return serviceHealth{Status: "up", URL: endpoint}
 	}
 
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 600))
+	details := strings.TrimSpace(string(body))
+	if details == "" {
+		details = resp.Status
+	}
+
 	return serviceHealth{
 		Status:  "down",
 		URL:     endpoint,
-		Details: resp.Status,
+		Details: details,
 	}
 }
 
@@ -71,16 +78,16 @@ func renderHealthPage(overall string, services map[string]serviceHealth) string 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sports Stream Health</title>
 <style>
-*{box-sizing:border-box} body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#0f172a;color:#e2e8f0;padding:24px}
+*{box-sizing:border-box} body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#081120;color:#e2e8f0;padding:24px}
 .shell{max-width:1100px;margin:0 auto}.panel{background:#111827;border:1px solid #334155;border-radius:20px;padding:24px}
 .badge{display:inline-block;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:700;margin-bottom:16px}.badge.up{background:#153d2f;color:#86efac}.badge.warn{background:#4a2d13;color:#fdba74}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:18px}.card{background:#162033;border:1px solid #334155;border-radius:16px;padding:16px}
 .service{font-weight:700;margin-bottom:8px}.pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:700}.pill.up{background:#153d2f;color:#86efac}.pill.down{background:#4c1d1d;color:#fca5a5}
-.meta{margin-top:10px;color:#cbd5e1;font-size:13px;word-break:break-word}.small{margin-top:8px;color:#94a3b8;font-size:12px;word-break:break-word}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}.btn{text-decoration:none;padding:10px 14px;border-radius:10px;background:#38bdf8;color:#082032;font-weight:700}
+.meta{margin-top:10px;color:#cbd5e1;font-size:13px;word-break:break-word}.small{margin-top:8px;color:#94a3b8;font-size:12px;word-break:break-word}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}.btn{text-decoration:none;padding:10px 14px;border-radius:10px;background:#38bdf8;color:#082032;font-weight:700}.btn.alt{background:#162033;color:#e5eefc;border:1px solid #334155}
 </style>
 </head>
 <body>
-<div class="shell"><div class="panel"><div class="badge %s">%s</div><h1>Sports Stream Public Health</h1><p>This page is public and shows the live gateway and internal service health without login.</p><div class="grid">%s</div><div class="actions"><a class="btn" href="https://livestream.study/">Open Website</a></div></div></div>
+<div class="shell"><div class="panel"><div class="badge %s">%s</div><h1>Sports Stream Health</h1><p>This page is public and shows the live gateway and internal service health without login.</p><div class="grid">%s</div><div class="actions"><a class="btn" href="/">Back to Homepage</a><a class="btn alt" href="/admin">Admin Login</a></div></div></div>
 </body>
 </html>`, badgeClass, html.EscapeString(badgeText), cards.String())
 }
@@ -90,27 +97,55 @@ const landingPage = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sports Stream Backend</title>
+<title>Sports Stream</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',Arial,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-  .shell{max-width:860px;width:100%;background:#111827;border:1px solid #334155;border-radius:24px;padding:32px;box-shadow:0 20px 70px rgba(0,0,0,.3)}
-  .badge{display:inline-block;padding:7px 12px;border-radius:999px;background:#0b3b4a;color:#67e8f9;font-size:12px;font-weight:700;margin-bottom:16px}
-  h1{font-size:40px;margin-bottom:10px}.lead{color:#cbd5e1;line-height:1.6;margin-bottom:20px}
-  .links{display:flex;gap:12px;flex-wrap:wrap}.btn{display:inline-block;text-decoration:none;padding:12px 16px;border-radius:10px;font-weight:700}.primary{background:#38bdf8;color:#082032}.secondary{background:#162033;color:#e5eefc;border:1px solid #334155}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#081120 0%,#0f172a 45%,#111827 100%);color:#e2e8f0;min-height:100vh;padding:24px}
+.shell{max-width:1180px;margin:0 auto}.hero{background:#111827;border:1px solid #334155;border-radius:24px;padding:32px;box-shadow:0 20px 70px rgba(0,0,0,.3)}
+.badge{display:inline-block;padding:7px 12px;border-radius:999px;background:#0b3b4a;color:#67e8f9;font-size:12px;font-weight:700;margin-bottom:16px}
+h1{font-size:42px;margin-bottom:10px}.lead{color:#cbd5e1;line-height:1.6;max-width:760px}.links{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}.btn{display:inline-block;text-decoration:none;padding:12px 16px;border-radius:10px;font-weight:700}.primary{background:#38bdf8;color:#082032}.secondary{background:#162033;color:#e5eefc;border:1px solid #334155}
+.section{margin-top:18px;background:#111827;border:1px solid #334155;border-radius:20px;padding:24px}.muted{color:#94a3b8}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:16px}.card{background:#162033;border:1px solid #334155;border-radius:16px;padding:16px}.status{display:inline-block;padding:4px 8px;border-radius:999px;background:#153d2f;color:#86efac;font-size:12px;font-weight:700;margin-bottom:10px}.small{color:#cbd5e1;font-size:13px;line-height:1.5}.empty{padding:14px;border-radius:12px;background:#162033;border:1px solid #334155;margin-top:14px}
 </style>
 </head>
 <body>
 <div class="shell">
-  <div class="badge">Backend gateway</div>
-  <h1>Sports Stream Backend</h1>
-  <p class="lead">This Cloud Run service powers the Sports Stream platform API. For the public visitor experience, use the main website. For backend status, open the public health page.</p>
-  <div class="links">
-    <a class="btn primary" href="https://livestream.study/">Open Main Website</a>
-    <a class="btn secondary" href="/health">View Public Health</a>
-    <a class="btn secondary" href="/api/v1/streams">View Streams API</a>
+  <div class="hero">
+    <div class="badge">Live Sports Platform</div>
+    <h1>Sports Stream</h1>
+    <p class="lead">Watch the current live matches, check platform health, and sign in to the admin area from one GCP-hosted service.</p>
+    <div class="links">
+      <a class="btn primary" href="/admin">Admin Login</a>
+      <a class="btn secondary" href="/health">Health</a>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Live Matches</h2>
+    <p class="muted">This homepage loads the current live stream list directly from the backend.</p>
+    <div id="matches" class="grid"></div>
+    <div id="empty" class="empty">Loading live matches...</div>
   </div>
 </div>
+<script>
+async function loadMatches(){
+  const list=document.getElementById('matches');
+  const empty=document.getElementById('empty');
+  try {
+    const res=await fetch('/api/v1/streams',{headers:{'Accept':'application/json'}});
+    const data=await res.json();
+    const items=(data&&data.data)||[];
+    if(!items.length){empty.textContent='No live matches are available right now.'; list.innerHTML=''; return;}
+    empty.style.display='none';
+    list.innerHTML=items.map(function(s){
+      return '<div class="card"><div class="status">'+String((s.status||'live')).toUpperCase()+'</div><h3>'+String(s.title||'Untitled Match')+'</h3><div class="small">Viewers: '+String(s.viewerCount||0)+'</div><div class="small">Stream ID: '+String(s.id||'-')+'</div></div>';
+    }).join('');
+  } catch(e){
+    empty.textContent='Could not load live matches right now.';
+  }
+}
+loadMatches();
+setInterval(loadMatches, 15000);
+</script>
 </body>
 </html>`
 
@@ -179,7 +214,8 @@ func main() {
 			}
 
 			accept := strings.ToLower(r.Header.Get("Accept"))
-			if strings.Contains(accept, "text/html") {
+			returnJSON := path == "/health-api" || strings.Contains(accept, "application/json")
+			if !returnJSON {
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				w.WriteHeader(statusCode)
 				_, _ = w.Write([]byte(renderHealthPage(overall, services)))
