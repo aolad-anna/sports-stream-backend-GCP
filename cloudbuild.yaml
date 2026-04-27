@@ -30,14 +30,14 @@ steps:
     args:
       - build
       - -t
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$BUILD_ID
       - .
 
   - name: gcr.io/cloud-builders/docker
     id: Push Image
     args:
       - push
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$BUILD_ID
 
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: Deploy Cloud Run
@@ -46,7 +46,7 @@ steps:
       - run
       - deploy
       - ${_SERVICE_NAME}
-      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$BUILD_ID
       - --region=${_REGION}
       - --platform=managed
       - --allow-unauthenticated
@@ -59,7 +59,7 @@ steps:
       - --set-secrets=FIREBASE_CREDENTIALS=FIREBASE_CREDENTIALS:latest,ADMIN_PANEL_PASSWORD=ADMIN_PANEL_PASSWORD:latest,ADMIN_PANEL_SESSION_SECRET=ADMIN_PANEL_SESSION_SECRET:latest
 
 images:
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$BUILD_ID
 
 options:
   logging: CLOUD_LOGGING_ONLY
