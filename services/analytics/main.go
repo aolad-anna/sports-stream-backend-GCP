@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -22,6 +24,7 @@ import (
 // ── Models ────────────────────────────────────────────────────────────────────
 
 type ViewerEvent struct {
+	EventID   string `json:"eventId"`
 	EventType string `json:"eventType"`
 	StreamID  string `json:"streamId"`
 	UID       string `json:"uid"`
@@ -29,6 +32,7 @@ type ViewerEvent struct {
 }
 
 type StreamEvent struct {
+	EventID   string `json:"eventId"`
 	EventType string `json:"eventType"`
 	StreamID  string `json:"streamId"`
 	Title     string `json:"title"`
@@ -61,11 +65,22 @@ func (h *handler) processViewerEvent(ctx context.Context, data []byte) bool {
 	if event.StreamID == "" || event.UID == "" {
 		return true
 	}
+	if event.EventID == "" {
+		event.EventID = eventFingerprint(event.EventType, event.StreamID, event.UID, event.Timestamp)
+	}
 
 	ref := h.fs.Collection("analytics").Doc(event.StreamID)
+	processedRef := ref.Collection("processedEvents").Doc(event.EventID)
+	applied := false
 
 	// ── Update main analytics counters ────────────────────────────────────────
 	err := h.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		if processedSnap, err := tx.Get(processedRef); err == nil && processedSnap.Exists() {
+			return nil
+		} else if err != nil && status.Code(err) != codes.NotFound {
+			return err
+		}
+
 		snap, err := tx.Get(ref)
 
 		var doc AnalyticsDoc
@@ -91,16 +106,25 @@ func (h *handler) processViewerEvent(ctx context.Context, data []byte) bool {
 			if doc.CurrentViewers > doc.PeakViewers {
 				doc.PeakViewers = doc.CurrentViewers
 			}
+			applied = true
 		case "viewer_leave":
 			doc.CurrentViewers--
 			if doc.CurrentViewers < 0 {
 				doc.CurrentViewers = 0
 			}
+			applied = true
 		default:
 			return nil
 		}
 
 		doc.UpdatedAt = time.Now().UTC()
+		tx.Set(processedRef, map[string]any{
+			"eventId":     event.EventID,
+			"eventType":   event.EventType,
+			"uid":         event.UID,
+			"timestamp":   event.Timestamp,
+			"processedAt": time.Now().UTC(),
+		})
 		return tx.Set(ref, doc)
 	})
 
@@ -108,6 +132,9 @@ func (h *handler) processViewerEvent(ctx context.Context, data []byte) bool {
 		log.Printf("analytics: transaction failed streamId=%s event=%s: %v",
 			event.StreamID, event.EventType, err)
 		return false
+	}
+	if !applied {
+		return true
 	}
 
 	// ── Write viewer history record ───────────────────────────────────────────
@@ -190,37 +217,75 @@ func (h *handler) processStreamEvent(ctx context.Context, data []byte) bool {
 	if event.StreamID == "" {
 		return true
 	}
+	if event.EventID == "" {
+		event.EventID = eventFingerprint(event.EventType, event.StreamID, event.Timestamp)
+	}
 
 	ref := h.fs.Collection("analytics").Doc(event.StreamID)
+	processedRef := ref.Collection("processedEvents").Doc(event.EventID)
+	applied := false
 
-	switch event.EventType {
-	case "stream_started":
-		doc := map[string]any{
-			"streamId":       event.StreamID,
-			"currentViewers": int64(0),
-			"peakViewers":    int64(0),
-			"totalJoins":     int64(0),
-			"updatedAt":      time.Now().UTC(),
+	err := h.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		if processedSnap, err := tx.Get(processedRef); err == nil && processedSnap.Exists() {
+			return nil
+		} else if err != nil && status.Code(err) != codes.NotFound {
+			return err
 		}
-		if _, err := ref.Set(ctx, doc, firestore.MergeAll); err != nil {
-			log.Printf("analytics: failed to init doc streamId=%s: %v", event.StreamID, err)
-			return false
+
+		switch event.EventType {
+		case "stream_started":
+			tx.Set(ref, map[string]any{
+				"streamId":       event.StreamID,
+				"currentViewers": int64(0),
+				"peakViewers":    int64(0),
+				"totalJoins":     int64(0),
+				"updatedAt":      time.Now().UTC(),
+			}, firestore.MergeAll)
+			applied = true
+
+		case "stream_ended":
+			tx.Set(ref, map[string]any{
+				"currentViewers": int64(0),
+				"updatedAt":      time.Now().UTC(),
+			}, firestore.MergeAll)
+			applied = true
+		default:
+			return nil
 		}
+
+		tx.Set(processedRef, map[string]any{
+			"eventId":     event.EventID,
+			"eventType":   event.EventType,
+			"timestamp":   event.Timestamp,
+			"processedAt": time.Now().UTC(),
+		})
+		return nil
+	})
+	if err != nil {
+		log.Printf("analytics: stream event transaction failed streamId=%s event=%s: %v", event.StreamID, event.EventType, err)
+		return false
+	}
+	if !applied {
+		return true
+	}
+
+	if event.EventType == "stream_started" {
 		log.Printf("analytics: initialized doc for stream %s", event.StreamID)
-
-	case "stream_ended":
-		doc := map[string]any{
-			"currentViewers": int64(0),
-			"updatedAt":      time.Now().UTC(),
-		}
-		if _, err := ref.Set(ctx, doc, firestore.MergeAll); err != nil {
-			log.Printf("analytics: failed to reset currentViewers streamId=%s: %v", event.StreamID, err)
-			return false
-		}
-		log.Printf("analytics: stream ended → currentViewers reset for %s", event.StreamID)
+	}
+	if event.EventType == "stream_ended" {
+		log.Printf("analytics: stream ended -> currentViewers reset for %s", event.StreamID)
 	}
 
 	return true
+}
+
+func eventFingerprint(parts ...string) string {
+	h := sha256.New()
+	for _, p := range parts {
+		h.Write([]byte(p))
+		h.Write([]byte{'|'})
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // GET /api/v1/analytics/stream/:id — returns main analytics doc

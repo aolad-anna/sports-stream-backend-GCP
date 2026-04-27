@@ -28,6 +28,10 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isStreamOwner(streamData) {
+      return isSignedIn() && streamData.broadcasterUid == request.auth.uid;
+    }
+
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) || isAdmin();
@@ -39,15 +43,19 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isBroadcaster() || isAdmin();
       allow update: if isAdmin() || (
-        isSignedIn() && resource.data.broadcasterId == request.auth.uid
+        isStreamOwner(resource.data)
       );
       allow delete: if isAdmin() || (
-        isSignedIn() && resource.data.broadcasterId == request.auth.uid
+        isStreamOwner(resource.data)
       );
     }
 
     match /analytics/{analyticsId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || (
+        isBroadcaster() &&
+        get(/databases/$(database)/documents/streams/$(analyticsId)).data.broadcasterUid == request.auth.uid
+      );
+      allow write: if isAdmin();
     }
 
     match /matches/{matchId} {

@@ -1,30 +1,19 @@
 {
   "hosting": {
+    "site": "sports-stream-66553",
     "public": "public",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
     ],
-    "cleanUrls": true,
     "rewrites": [
       {
-        "source": "/health-api",
-        "run": {
-          "serviceId": "sports-stream-backend-staging",
-          "region": "europe-west3"
-        }
-      },
-      {
-        "source": "/health-api/**",
-        "run": {
-          "serviceId": "sports-stream-backend-staging",
-          "region": "europe-west3"
-        }
-      },
-      {
         "source": "**",
-        "destination": "/index.html"
+        "run": {
+          "serviceId": "sports-stream-backend-staging",
+          "region": "europe-west3"
+        }
       }
     ]
   }

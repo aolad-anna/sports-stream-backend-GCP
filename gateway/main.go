@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -154,6 +156,19 @@ func newProxy(target string) *httputil.ReverseProxy {
 	return httputil.NewSingleHostReverseProxy(u)
 }
 
+func ensureRequestID(r *http.Request) string {
+	requestID := strings.TrimSpace(r.Header.Get("X-Request-Id"))
+	if requestID != "" {
+		return requestID
+	}
+
+	b := make([]byte, 12)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("req-%d", time.Now().UTC().UnixNano())
+	}
+	return hex.EncodeToString(b)
+}
+
 func main() {
 	// Scalingo injects PORT — must listen on it or app times out
 	port := os.Getenv("PORT")
@@ -180,8 +195,15 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
+		requestID := ensureRequestID(r)
+		r.Header.Set("X-Request-Id", requestID)
+		w.Header().Set("X-Request-Id", requestID)
 
-		log.Printf(`{"gateway":"route","method":%q,"path":%q}`, r.Method, path)
+		util.LogJSON("gateway", "info", "route", map[string]any{
+			"requestId": requestID,
+			"method":    r.Method,
+			"path":      path,
+		})
 
 		switch {
 
@@ -281,7 +303,7 @@ func main() {
 		}
 	})
 
-	log.Printf(`{"gateway":"started","port":%q}`, port)
+	util.LogJSON("gateway", "info", "started", map[string]any{"port": port})
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("gateway: %v", err)
