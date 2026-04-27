@@ -222,6 +222,8 @@ func (h *handler) logoutSubmit(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) dashboard(w http.ResponseWriter, r *http.Request) {
 	stats := DashboardStats{}
+	analyticsLiveStreams := int64(0)
+	analyticsCurrentViewers := int64(0)
 	usersIter := h.fs.Collection("users").Documents(r.Context())
 	for {
 		doc, err := usersIter.Next()
@@ -276,8 +278,21 @@ func (h *handler) dashboard(w http.ResponseWriter, r *http.Request) {
 		var a AnalyticsDoc
 		if err := doc.DataTo(&a); err == nil {
 			stats.TotalJoinsAll += a.TotalJoins
+			analyticsCurrentViewers += a.CurrentViewers
+			if a.CurrentViewers > 0 {
+				analyticsLiveStreams++
+			}
 		}
 	}
+
+	// Prefer analytics-based live counters when they are higher than stream snapshots.
+	if analyticsCurrentViewers > stats.CurrentViewers {
+		stats.CurrentViewers = analyticsCurrentViewers
+	}
+	if analyticsLiveStreams > stats.LiveStreams {
+		stats.LiveStreams = analyticsLiveStreams
+	}
+
 	jsonOK(w, stats)
 }
 
@@ -837,8 +852,9 @@ button,input,select,textarea{font:inherit}
 .toast-root{position:fixed;top:18px;right:18px;display:grid;gap:10px;z-index:9999;max-width:min(360px,calc(100vw - 36px))}
 .toast{padding:14px 16px;border-radius:16px;border:1px solid var(--line);box-shadow:0 16px 32px rgba(45,29,17,.16);background:rgba(255,251,245,.96);color:#2c241b;font:600 13px/1.5 ui-sans-serif,system-ui,sans-serif;transform:translateY(-4px);opacity:0;transition:opacity .18s ease,transform .18s ease}.toast.show{opacity:1;transform:translateY(0)}.toast.success{border-color:#bce6d4;background:#f0fbf6}.toast.error{border-color:#f0c1b9;background:#fff2ef}
 .muted{color:#88705a}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.pill{display:inline-flex;align-items:center;padding:7px 11px;border-radius:999px;background:#f1e6d7;color:#7c6146;border:1px solid var(--line);font:700 11px/1 ui-sans-serif,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase}.pill.live{background:#fee5da;color:#b64935;border-color:#efc1ae}
-@media (max-width:1180px){.app{grid-template-columns:1fr}.sidebar{padding-bottom:20px}.main{padding:20px}.hero,.split,.chart-row{grid-template-columns:1fr}}
-@media (max-width:720px){.topbar{flex-direction:column}.title-wrap h2{font-size:30px}.toolbar,.form-grid{grid-template-columns:1fr}.tbl{min-width:620px}}
+@media (max-width:1180px){.app{grid-template-columns:1fr}.sidebar{padding-bottom:20px}.main{padding:20px}.hero,.split,.chart-row{grid-template-columns:1fr}.menu{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.menu button{padding:12px}.sidebar-foot{margin-top:14px}}
+@media (max-width:720px){.topbar{flex-direction:column}.top-actions{width:100%;justify-content:space-between}.title-wrap h2{font-size:30px}.toolbar,.form-grid{grid-template-columns:1fr}.toolbar{display:grid}.toolbar button,.toolbar input,.toolbar textarea,.toolbar select{width:100%}.surface{padding:14px;border-radius:18px}.row-actions{flex-direction:column}.row-actions button{width:100%}.tbl{min-width:520px}.sidebar{padding:16px}}
+@media (max-width:520px){.menu{grid-template-columns:1fr}.main{padding:12px}.title-wrap h2{font-size:26px}.hero-card{padding:16px}.panel{padding:14px}.tbl{min-width:460px}.chart-wrap{height:220px}}
 </style>
 </head>
 <body>
