@@ -761,8 +761,8 @@ func (h *handler) analyticsSSE(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
-        ctx, cancel := context.WithCancel(r.Context())
-        defer cancel()
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
 
 	snaps := h.fs.Collection("analytics").Snapshots(ctx)
 	defer snaps.Stop()
