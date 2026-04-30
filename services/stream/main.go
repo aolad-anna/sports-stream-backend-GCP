@@ -30,6 +30,7 @@ type Stream struct {
 	Status         string    `firestore:"status"         json:"status"`
 	HLSUrl         string    `firestore:"hlsUrl"         json:"hlsUrl"`
 	ViewerCount    int       `firestore:"viewerCount"    json:"viewerCount"`
+	CurrentViewers int64     `firestore:"-"              json:"currentViewers"`
 	BroadcasterUID string    `firestore:"broadcasterUid" json:"broadcasterUid"`
 	CreatedAt      time.Time `firestore:"createdAt"      json:"createdAt"`
 	UpdatedAt      time.Time `firestore:"updatedAt"      json:"updatedAt"`
@@ -113,10 +114,27 @@ func (h *handler) listStreams(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to fetch streams", http.StatusInternalServerError)
 		return
 	}
+	// Build analytics map for currentViewers merge
+	analyticsMap := map[string]int64{}
+	if aDocs, aErr := h.fs.Collection("analytics").Documents(r.Context()).GetAll(); aErr == nil {
+		for _, ad := range aDocs {
+			var a struct {
+				StreamID       string `firestore:"streamId"`
+				CurrentViewers int64  `firestore:"currentViewers"`
+			}
+			if ad.DataTo(&a) == nil {
+				analyticsMap[a.StreamID] = a.CurrentViewers
+			}
+		}
+	}
 	streams := make([]Stream, 0, len(docs))
 	for _, d := range docs {
 		var s Stream
 		if err := d.DataTo(&s); err == nil {
+			s.CurrentViewers = int64(s.ViewerCount)
+			if cv, ok := analyticsMap[s.ID]; ok && cv > s.CurrentViewers {
+				s.CurrentViewers = cv
+			}
 			streams = append(streams, s)
 		}
 	}
@@ -140,6 +158,16 @@ func (h *handler) getStream(w http.ResponseWriter, r *http.Request) {
 	if err := snap.DataTo(&s); err != nil {
 		jsonError(w, "decode error", http.StatusInternalServerError)
 		return
+	}
+	// Merge currentViewers from analytics — Android app reads this for live count
+	s.CurrentViewers = int64(s.ViewerCount)
+	if aSnap, aErr := h.fs.Collection("analytics").Doc(streamID).Get(r.Context()); aErr == nil {
+		var a struct {
+			CurrentViewers int64 `firestore:"currentViewers"`
+		}
+		if aSnap.DataTo(&a) == nil && a.CurrentViewers > s.CurrentViewers {
+			s.CurrentViewers = a.CurrentViewers
+		}
 	}
 	jsonOK(w, s)
 }
