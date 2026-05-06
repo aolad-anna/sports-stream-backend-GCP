@@ -4,8 +4,8 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="fix: tidy go.mod and go.sum">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="fix: update gitignore — remove credentials from tracking">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -205,7 +205,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fix url and deploy issue" />
     <MESSAGE value="fix gateway permission denied" />
     <MESSAGE value="dd" />
     <MESSAGE value="new sh" />
@@ -230,7 +229,8 @@
     <MESSAGE value="CI/CD" />
     <MESSAGE value="fix: go formatting" />
     <MESSAGE value="fix: tidy go.mod and go.sum" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix: tidy go.mod and go.sum" />
+    <MESSAGE value="fix: update gitignore — remove credentials from tracking" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: update gitignore — remove credentials from tracking" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
