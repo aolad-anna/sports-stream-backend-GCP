@@ -8,6 +8,7 @@ require (
 	cloud.google.com/go/storage v1.40.0
 	firebase.google.com/go/v4 v4.14.1
 	github.com/gorilla/mux v1.8.1
+	golang.org/x/oauth2 v0.34.0
 	google.golang.org/api v0.171.0
 	google.golang.org/grpc v1.79.3
 )
@@ -38,7 +39,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.39.0 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/net v0.51.0 // indirect
-	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
