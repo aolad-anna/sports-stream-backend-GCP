@@ -4,11 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="change">
-      <change beforePath="$PROJECT_DIR$/.github/workflows/cloudbuild.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/cloudbuild.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.github/workflows/deploy.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/deploy.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cloudbuild.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/cloudbuild.yaml" afterDir="false" />
-    </list>
+    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="add workflow secrets" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -199,7 +195,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fix go version" />
     <MESSAGE value="fix go version final" />
     <MESSAGE value="fix loadDotEnv panic on fly.io" />
     <MESSAGE value="multi-service fly.io deployment" />
@@ -224,7 +219,8 @@
     <MESSAGE value="needed file" />
     <MESSAGE value="change getaway" />
     <MESSAGE value="change" />
-    <option name="LAST_COMMIT_MESSAGE" value="change" />
+    <MESSAGE value="add workflow secrets" />
+    <option name="LAST_COMMIT_MESSAGE" value="add workflow secrets" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
