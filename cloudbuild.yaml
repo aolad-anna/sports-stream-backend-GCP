@@ -1,17 +1,18 @@
 substitutions:
-  _REGION: europe-west1
+  _REGION: europe-west2                  # FIX: was europe-west1, service is in europe-west2
   _SERVICE_NAME: sports-stream-backend-staging
   _REPOSITORY: sports-stream
   _ENV: production
   _ADMIN_PANEL_USERNAME: admin
   _GCS_BUCKET: sports-stream-66553.appspot.com
   _CDN_BASE_URL: https://storage.googleapis.com/sports-stream-66553.appspot.com
-  _TRANSCODER_LOCATION: europe-west1
+  _TRANSCODER_LOCATION: europe-west1    # Transcoder API location stays europe-west1
   _VIEWER_SUB: viewer-events-analytics-sub
   _STREAM_SUB: stream-events-analytics-sub
   _NOTIFICATION_SUB: notification-events-sub
 
 steps:
+  # ── Step 1: Ensure Artifact Registry repository exists ───────────────────────
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: Ensure Artifact Registry Repository
     entrypoint: bash
@@ -25,6 +26,7 @@ steps:
           --location="${_REGION}" \
           --description="Sports Stream backend images"
 
+  # ── Step 2: Build Docker image ───────────────────────────────────────────────
   - name: gcr.io/cloud-builders/docker
     id: Build Image
     args:
@@ -32,13 +34,17 @@ steps:
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
       - .
+    timeout: '600s'
 
+  # ── Step 3: Push image to Artifact Registry ──────────────────────────────────
   - name: gcr.io/cloud-builders/docker
     id: Push Image
     args:
       - push
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
+    waitFor: ['Build Image']
 
+  # ── Step 4: Deploy to Cloud Run ──────────────────────────────────────────────
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: Deploy Cloud Run
     entrypoint: gcloud
@@ -52,14 +58,19 @@ steps:
       - --allow-unauthenticated
       - --cpu=2
       - --memory=2Gi
-      - --min-instances=0
-      - --max-instances=10
+      - --min-instances=1
+      - --max-instances=20
+      - --concurrency=500
       - --timeout=300
-      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,ENV=${_ENV},ADMIN_PANEL_USERNAME=${_ADMIN_PANEL_USERNAME},GCS_BUCKET=${_GCS_BUCKET},CDN_BASE_URL=${_CDN_BASE_URL},TRANSCODER_LOCATION=${_TRANSCODER_LOCATION},VIEWER_SUB=${_VIEWER_SUB},STREAM_SUB=${_STREAM_SUB},NOTIFICATION_SUB=${_NOTIFICATION_SUB}
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,ENV=${_ENV},ADMIN_PANEL_USERNAME=${_ADMIN_PANEL_USERNAME},GCS_BUCKET=${_GCS_BUCKET},CDN_BASE_URL=${_CDN_BASE_URL},TRANSCODER_LOCATION=${_TRANSCODER_LOCATION},VIEWER_SUB=${_VIEWER_SUB},STREAM_SUB=${_STREAM_SUB},NOTIFICATION_SUB=${_NOTIFICATION_SUB},USER_SERVICE_URL=http://127.0.0.1:8081,STREAM_SERVICE_URL=http://127.0.0.1:8082,ANALYTICS_SERVICE_URL=http://127.0.0.1:8085,NOTIFICATION_SERVICE_URL=http://127.0.0.1:8083,ADMIN_SERVICE_URL=http://127.0.0.1:8084
       - --set-secrets=FIREBASE_CREDENTIALS=FIREBASE_CREDENTIALS:latest,ADMIN_PANEL_PASSWORD=ADMIN_PANEL_PASSWORD:latest,ADMIN_PANEL_SESSION_SECRET=ADMIN_PANEL_SESSION_SECRET:latest
+    waitFor: ['Push Image']
 
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
 
 options:
   logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+timeout: '900s'

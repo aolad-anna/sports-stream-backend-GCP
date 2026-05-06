@@ -1,0 +1,52 @@
+# ── cloudbuild.yml ────────────────────────────────────────────────────────────
+# Triggered by Cloud Build on push to main branch.
+# Builds Docker image and deploys to Cloud Run.
+# Set this up in GCP Console → Cloud Build → Triggers
+
+steps:
+  # ── Step 1: Build Docker image ──────────────────────────────────────────────
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/sports-stream-backend:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/sports-stream-backend:latest'
+      - '.'
+    timeout: '600s'
+
+  # ── Step 2: Push image to Container Registry ─────────────────────────────────
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'gcr.io/$PROJECT_ID/sports-stream-backend'
+    waitFor: ['build']
+
+  # ── Step 3: Deploy to Cloud Run ──────────────────────────────────────────────
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'deploy'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'services'
+      - 'update'
+      - 'sports-stream-backend-staging'
+      - '--image=gcr.io/$PROJECT_ID/sports-stream-backend:$COMMIT_SHA'
+      - '--region=europe-west2'
+      - '--platform=managed'
+    waitFor: ['push']
+
+# ── Images to store in registry ───────────────────────────────────────────────
+images:
+  - 'gcr.io/$PROJECT_ID/sports-stream-backend:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/sports-stream-backend:latest'
+
+# ── Build timeout ─────────────────────────────────────────────────────────────
+timeout: '900s'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'

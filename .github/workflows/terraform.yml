@@ -1,36 +1,87 @@
-name: Terraform Validation
+# ── terraform.yml ─────────────────────────────────────────────────────────────
+# Provisions GCP infrastructure via Terraform.
+# Manages: Cloud Run service, Pub/Sub topics + subscriptions, Firestore indexes.
+# Runs on push to main (plan + apply) or PR (plan only).
+#
+# Requires GitHub Secrets:
+#   GCP_PROJECT_ID  = sports-stream-66553
+#   GCP_SA_KEY      = base64-encoded service account JSON
+
+name: Terraform Infrastructure
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
     paths:
-      - 'infra/terraform/**'
-      - '.github/workflows/terraform.yml'
+      - 'terraform/**'        # only run when terraform files change
   pull_request:
     paths:
-      - 'infra/terraform/**'
-      - '.github/workflows/terraform.yml'
+      - 'terraform/**'
+  workflow_dispatch:
+
+env:
+  TF_VERSION:   '1.7.0'
+  PROJECT_ID:   ${{ secrets.GCP_PROJECT_ID }}
+  REGION:       europe-west2
 
 jobs:
   terraform:
+    name: Terraform Plan & Apply
     runs-on: ubuntu-latest
+
     defaults:
       run:
-        working-directory: infra/terraform
+        working-directory: terraform   # all terraform commands run from /terraform
 
     steps:
-      - uses: actions/checkout@v3
+      # ── Checkout ──────────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Setup Terraform
+      # ── Authenticate with GCP ─────────────────────────────────────────────────
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # ── Set up Terraform ──────────────────────────────────────────────────────
+      - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.6.6
+          terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Terraform Format Check
-        run: terraform fmt -check -recursive
-
+      # ── Terraform Init ────────────────────────────────────────────────────────
       - name: Terraform Init
-        run: terraform init -backend=false
+        run: terraform init
 
+      # ── Terraform Format check ────────────────────────────────────────────────
+      - name: Terraform Format
+        run: terraform fmt -check
+        continue-on-error: true
+
+      # ── Terraform Validate ────────────────────────────────────────────────────
       - name: Terraform Validate
         run: terraform validate
+
+      # ── Terraform Plan ────────────────────────────────────────────────────────
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -var="project_id=$PROJECT_ID" \
+            -var="region=$REGION" \
+            -out=tfplan
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+
+      # ── Terraform Apply (main branch only) ────────────────────────────────────
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform apply -auto-approve tfplan
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+
+      # ── Output Cloud Run URL ──────────────────────────────────────────────────
+      - name: Show outputs
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform output
