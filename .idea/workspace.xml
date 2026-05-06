@@ -4,7 +4,10 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="CI/CD" />
+    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="fix: go formatting">
+      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" afterPath="$PROJECT_DIR$/go.sum" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -203,7 +206,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="single container all services with nginx" />
     <MESSAGE value="important" />
     <MESSAGE value="fix url and deploy issue" />
     <MESSAGE value="fix gateway permission denied" />
@@ -228,7 +230,8 @@
     <MESSAGE value="remove" />
     <MESSAGE value="Complete Deployment Flow" />
     <MESSAGE value="CI/CD" />
-    <option name="LAST_COMMIT_MESSAGE" value="CI/CD" />
+    <MESSAGE value="fix: go formatting" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: go formatting" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
