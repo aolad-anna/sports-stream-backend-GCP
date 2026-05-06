@@ -13,6 +13,7 @@ import (
 	"cloud.google.com/go/firestore"
 	"cloud.google.com/go/storage"
 	"github.com/gorilla/mux"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -29,7 +30,7 @@ type Video struct {
 	ID           string    `firestore:"id"             json:"id"`
 	Title        string    `firestore:"title"          json:"title"`
 	Description  string    `firestore:"description"    json:"description"`
-	Status       string    `firestore:"status"         json:"status"` // uploading | transcoding | ready | failed
+	Status       string    `firestore:"status"         json:"status"`
 	HLSUrl       string    `firestore:"hlsUrl"         json:"hlsUrl"`
 	ThumbnailUrl string    `firestore:"thumbnailUrl"   json:"thumbnailUrl"`
 	RawGCSPath   string    `firestore:"rawGcsPath"     json:"rawGcsPath"`
@@ -44,11 +45,7 @@ type Video struct {
 type UploadRequest struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
-	StreamID    string `json:"streamId,omitempty"` // optional — link to a stream
-}
-
-type TranscodeRequest struct {
-	VideoID string `json:"videoId"`
+	StreamID    string `json:"streamId,omitempty"`
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -72,9 +69,22 @@ func (h *handler) getUserRole(ctx context.Context, uid string) string {
 	return profile.Role
 }
 
-// ── POST /api/v1/videos/upload-url ────────────────────────────────────────────
-// Returns a signed GCS upload URL so Android can upload directly to GCS.
-// No video data passes through the backend — secure and efficient.
+// ── getAuthToken — gets GCP access token for API calls ───────────────────────
+// Uses Application Default Credentials — works automatically on Cloud Run.
+
+func getAuthToken(ctx context.Context) (string, error) {
+	ts, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
+	if err != nil {
+		return "", fmt.Errorf("failed to get token source: %w", err)
+	}
+	token, err := ts.Token()
+	if err != nil {
+		return "", fmt.Errorf("failed to get token: %w", err)
+	}
+	return token.AccessToken, nil
+}
+
+// ── POST /api/v1/videos/upload-url ───────────────────────────────────────────
 
 func (h *handler) getUploadURL(w http.ResponseWriter, r *http.Request) {
 	uid, _ := middleware.UIDFromContext(r.Context())
@@ -94,7 +104,6 @@ func (h *handler) getUploadURL(w http.ResponseWriter, r *http.Request) {
 	videoID := fmt.Sprintf("video_%d", now.UnixMilli())
 	gcsPath := fmt.Sprintf("uploads/%s/%s.mp4", uid, videoID)
 
-	// Create video doc in Firestore with status=uploading
 	video := Video{
 		ID:          videoID,
 		Title:       req.Title,
@@ -112,7 +121,6 @@ func (h *handler) getUploadURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate signed upload URL — valid for 15 minutes
 	opts := &storage.SignedURLOptions{
 		Method:      "PUT",
 		Expires:     time.Now().Add(15 * time.Minute),
@@ -121,7 +129,6 @@ func (h *handler) getUploadURL(w http.ResponseWriter, r *http.Request) {
 	signedURL, err := h.gcs.Bucket(h.bucket).SignedURL(gcsPath, opts)
 	if err != nil {
 		log.Printf("video: failed to generate signed URL: %v", err)
-		// Return unsigned URL for local development
 		signedURL = fmt.Sprintf("https://storage.googleapis.com/%s/%s", h.bucket, gcsPath)
 	}
 
@@ -133,14 +140,12 @@ func (h *handler) getUploadURL(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ── POST /api/v1/videos/{id}/transcode ────────────────────────────────────────
-// Called after Android finishes uploading. Triggers Cloud Transcoder API.
+// ── POST /api/v1/videos/{id}/transcode ───────────────────────────────────────
 
 func (h *handler) transcodeVideo(w http.ResponseWriter, r *http.Request) {
 	videoID := mux.Vars(r)["id"]
 	uid, _ := middleware.UIDFromContext(r.Context())
 
-	// Get video doc
 	snap, err := h.fs.Collection("videos").Doc(videoID).Get(r.Context())
 	if status.Code(err) == codes.NotFound {
 		jsonError(w, "video not found", http.StatusNotFound)
@@ -153,7 +158,6 @@ func (h *handler) transcodeVideo(w http.ResponseWriter, r *http.Request) {
 	var video Video
 	snap.DataTo(&video)
 
-	// Only uploader or admin can trigger transcode
 	role := h.getUserRole(r.Context(), uid)
 	if video.UploaderUID != uid && role != "admin" {
 		jsonError(w, "forbidden", http.StatusForbidden)
@@ -165,13 +169,11 @@ func (h *handler) transcodeVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update status to transcoding
 	h.fs.Collection("videos").Doc(videoID).Update(r.Context(), []firestore.Update{
 		{Path: "status", Value: "transcoding"},
 		{Path: "updatedAt", Value: time.Now().UTC()},
 	})
 
-	// Start transcoding in background
 	go h.runTranscoder(videoID, video.RawGCSPath)
 
 	jsonOK(w, map[string]any{
@@ -181,7 +183,9 @@ func (h *handler) transcodeVideo(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ── runTranscoder — calls GCP Cloud Transcoder API ───────────────────────────
+// ── runTranscoder ─────────────────────────────────────────────────────────────
+// FIX: Uses OAuth2 Application Default Credentials for Transcoder API calls.
+// On Cloud Run, ADC is automatic — no key file needed.
 
 func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 	ctx := context.Background()
@@ -193,6 +197,14 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 	hlsURL := fmt.Sprintf("%s/hls/%s/index.m3u8", h.cdnBase, videoID)
 	parent := fmt.Sprintf("projects/%s/locations/%s", projectID, location)
 	submitURL := fmt.Sprintf("https://transcoder.googleapis.com/v1/%s/jobs", parent)
+
+	// FIX: Get OAuth2 token — required for all GCP REST API calls
+	authToken, err := getAuthToken(ctx)
+	if err != nil {
+		log.Printf("video: failed to get auth token videoId=%s: %v", videoID, err)
+		h.markFailed(videoID)
+		return
+	}
 
 	jobPayload := map[string]any{
 		"inputUri":  inputURI,
@@ -258,15 +270,17 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 		},
 	}
 
-	body, _ := json.Marshal(map[string]any{"job": jobPayload})
+	bodyBytes, _ := json.Marshal(map[string]any{"job": jobPayload})
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, submitURL, strings.NewReader(string(body)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, submitURL,
+		strings.NewReader(string(bodyBytes)))
 	if err != nil {
 		log.Printf("video: transcode request build failed videoId=%s: %v", videoID, err)
 		h.markFailed(videoID)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+authToken) // FIX: auth header
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -278,13 +292,13 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		body, _ := io.ReadAll(resp.Body)
-		log.Printf("video: transcode API error %d videoId=%s: %s", resp.StatusCode, videoID, body)
+		errBody, _ := io.ReadAll(resp.Body)
+		log.Printf("video: transcode API error %d videoId=%s: %s",
+			resp.StatusCode, videoID, string(errBody))
 		h.markFailed(videoID)
 		return
 	}
 
-	// Capture job name to poll specific job
 	var jobResp map[string]any
 	json.NewDecoder(resp.Body).Decode(&jobResp)
 	jobName, _ := jobResp["name"].(string)
@@ -301,7 +315,15 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 	for i := 0; i < 90; i++ {
 		time.Sleep(10 * time.Second)
 
+		// Refresh token for each poll (tokens expire after 1 hour)
+		pollToken, err := getAuthToken(ctx)
+		if err != nil {
+			log.Printf("video: failed to refresh token poll=%d: %v", i, err)
+			continue
+		}
+
 		checkReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, jobURL, nil)
+		checkReq.Header.Set("Authorization", "Bearer "+pollToken) // FIX: auth on poll
 		checkResp, err := client.Do(checkReq)
 		if err != nil {
 			continue
@@ -311,10 +333,9 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 		checkResp.Body.Close()
 
 		state, _ := result["state"].(string)
-		log.Printf("video: job state=%s videoId=%s", state, videoID)
+		log.Printf("video: job state=%s videoId=%s poll=%d", state, videoID, i+1)
 
 		if state == "SUCCEEDED" {
-			// Update Firestore with ready status and HLS URL
 			h.fs.Collection("videos").Doc(videoID).Update(ctx, []firestore.Update{
 				{Path: "status", Value: "ready"},
 				{Path: "hlsUrl", Value: hlsURL},
@@ -322,7 +343,7 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 			})
 			log.Printf("video: ✅ transcoding complete videoId=%s hlsUrl=%s", videoID, hlsURL)
 
-			// If linked to a stream, update stream's hlsUrl too
+			// Update linked stream hlsUrl if any
 			snap, _ := h.fs.Collection("videos").Doc(videoID).Get(ctx)
 			var v Video
 			if snap != nil {
@@ -335,7 +356,6 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 				}
 			}
 
-			// Publish event
 			psclient.PublishEvent(ctx, "stream_events", map[string]any{
 				"eventType": "video_ready",
 				"videoId":   videoID,
@@ -351,7 +371,6 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 		}
 	}
 
-	// Timeout
 	log.Printf("video: transcoding timed out videoId=%s", videoID)
 	h.markFailed(videoID)
 }
@@ -364,7 +383,6 @@ func (h *handler) markFailed(videoID string) {
 }
 
 // ── GET /api/v1/videos ────────────────────────────────────────────────────────
-// List all ready videos
 
 func (h *handler) listVideos(w http.ResponseWriter, r *http.Request) {
 	docs, err := h.fs.Collection("videos").
@@ -402,7 +420,6 @@ func (h *handler) getVideo(w http.ResponseWriter, r *http.Request) {
 	var v Video
 	snap.DataTo(&v)
 
-	// Increment view count
 	go h.fs.Collection("videos").Doc(videoID).Update(context.Background(), []firestore.Update{
 		{Path: "viewCount", Value: firestore.Increment(1)},
 	})
@@ -411,7 +428,6 @@ func (h *handler) getVideo(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── GET /api/v1/videos/{id}/manifest ─────────────────────────────────────────
-// Returns HLS URL for ExoPlayer
 
 func (h *handler) getManifest(w http.ResponseWriter, r *http.Request) {
 	videoID := mux.Vars(r)["id"]
@@ -459,15 +475,11 @@ func (h *handler) deleteVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete Firestore doc
 	h.fs.Collection("videos").Doc(videoID).Delete(r.Context())
 
-	// Delete GCS files in background
 	go func() {
 		ctx := context.Background()
-		// Delete raw upload
 		h.gcs.Bucket(h.bucket).Object(v.RawGCSPath).Delete(ctx)
-		// Delete HLS segments
 		prefix := fmt.Sprintf("hls/%s/", videoID)
 		it := h.gcs.Bucket(h.bucket).Objects(ctx, &storage.Query{Prefix: prefix})
 		for {
@@ -506,7 +518,6 @@ func main() {
 	} else if creds != "" {
 		fsOpts = append(fsOpts, option.WithCredentialsFile(creds))
 	}
-
 	fs, err := firestore.NewClient(ctx, projectID, fsOpts...)
 	if err != nil {
 		log.Fatalf("video: firestore init: %v", err)
@@ -538,13 +549,10 @@ func main() {
 	}).Methods(http.MethodGet)
 
 	v1 := r.PathPrefix("/api/v1").Subrouter()
-
-	// Public
 	v1.HandleFunc("/videos", h.listVideos).Methods(http.MethodGet)
 	v1.HandleFunc("/videos/{id}", h.getVideo).Methods(http.MethodGet)
 	v1.HandleFunc("/videos/{id}/manifest", h.getManifest).Methods(http.MethodGet)
 
-	// Protected
 	protected := v1.NewRoute().Subrouter()
 	protected.Use(middleware.AuthRequired)
 	protected.HandleFunc("/videos/upload-url", h.getUploadURL).Methods(http.MethodPost)

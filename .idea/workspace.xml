@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="feat: add video upload web interface">
+    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="fix issue">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/services/video/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/services/video/main.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -206,7 +206,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fix binary permissions using /usr/local/bin" />
     <MESSAGE value="minor changes" />
     <MESSAGE value="html page" />
     <MESSAGE value="changes" />
@@ -231,7 +230,8 @@
     <MESSAGE value="fix: upgrade grpc to v1.79.3 — CVE-2026-33186" />
     <MESSAGE value="fix: service url" />
     <MESSAGE value="feat: add video upload web interface" />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: add video upload web interface" />
+    <MESSAGE value="fix issue" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix issue" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
