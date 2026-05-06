@@ -10,8 +10,6 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY public/ /public/
-
 COPY . .
 
 # Build all binaries and set execute permission in builder stage
@@ -28,7 +26,7 @@ FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates ffmpeg
 
-# Copy binaries from /bin — permissions are preserved
+# Copy binaries from builder
 COPY --from=builder /bin/user-service         /usr/local/bin/user-service
 COPY --from=builder /bin/stream-service       /usr/local/bin/stream-service
 COPY --from=builder /bin/analytics-service    /usr/local/bin/analytics-service
@@ -36,6 +34,8 @@ COPY --from=builder /bin/notification-service /usr/local/bin/notification-servic
 COPY --from=builder /bin/admin-service        /usr/local/bin/admin-service
 COPY --from=builder /bin/video-service        /usr/local/bin/video-service
 COPY --from=builder /bin/gateway              /usr/local/bin/gateway
+
+COPY --from=builder /app/public /public
 
 COPY start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
