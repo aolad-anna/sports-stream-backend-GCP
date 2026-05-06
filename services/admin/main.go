@@ -110,7 +110,9 @@ func (h *handler) getUserRole(ctx context.Context, uid string) string {
 	if err != nil {
 		return ""
 	}
-	var profile struct{ Role string `firestore:"role"` }
+	var profile struct {
+		Role string `firestore:"role"`
+	}
 	if err := snap.DataTo(&profile); err != nil {
 		return ""
 	}
@@ -379,7 +381,9 @@ func (h *handler) deleteUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) updateUserRole(w http.ResponseWriter, r *http.Request) {
 	uid := mux.Vars(r)["uid"]
-	var body struct{ Role string `json:"role"` }
+	var body struct {
+		Role string `json:"role"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		jsonError(w, "invalid JSON", http.StatusBadRequest)
 		return
