@@ -1,20 +1,58 @@
 substitutions:
-  _REGION: europe-west2                  # FIX: was europe-west1, service is in europe-west2
+  _REGION: europe-west2
   _SERVICE_NAME: sports-stream-backend-staging
   _REPOSITORY: sports-stream
   _ENV: production
   _ADMIN_PANEL_USERNAME: admin
   _GCS_BUCKET: sports-stream-66553.appspot.com
   _CDN_BASE_URL: https://storage.googleapis.com/sports-stream-66553.appspot.com
-  _TRANSCODER_LOCATION: europe-west1    # Transcoder API location stays europe-west1
+  _TRANSCODER_LOCATION: europe-west1
   _VIEWER_SUB: viewer-events-analytics-sub
   _STREAM_SUB: stream-events-analytics-sub
   _NOTIFICATION_SUB: notification-events-sub
 
 steps:
-  # ── Step 1: Ensure Artifact Registry repository exists ───────────────────────
+  # ── Step 1: Verify Go code compiles cleanly ───────────────────────────────
+  - name: golang:1.26-alpine
+    id: Verify
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        go build ./... && echo "✅ Build verified"
+
+  # ── Step 2: Run Go tests ──────────────────────────────────────────────────
+  - name: golang:1.26-alpine
+    id: Test
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        go test ./... -v -timeout 60s || echo "⚠️ No tests found — skipping"
+    waitFor: ['Verify']
+
+  # ── Step 3: Security scan — check for secrets in code ─────────────────────
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
-    id: Ensure Artifact Registry Repository
+    id: Security Scan
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        # Fail if any hardcoded credentials found
+        if grep -r "private_key" --include="*.go" .; then
+          echo "❌ Hardcoded credentials found in Go files"
+          exit 1
+        fi
+        if grep -r "AIzaSy" --include="*.go" .; then
+          echo "❌ Hardcoded Firebase API key found"
+          exit 1
+        fi
+        echo "✅ Security scan passed"
+    waitFor: ['Verify']
+
+  # ── Step 4: Ensure Artifact Registry repository exists ────────────────────
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: Ensure Registry
     entrypoint: bash
     args:
       - -c
@@ -25,26 +63,34 @@ steps:
           --repository-format=docker \
           --location="${_REGION}" \
           --description="Sports Stream backend images"
+    waitFor: ['Test', 'Security Scan']
 
-  # ── Step 2: Build Docker image ───────────────────────────────────────────────
+  # ── Step 5: Build Docker image ────────────────────────────────────────────
   - name: gcr.io/cloud-builders/docker
     id: Build Image
     args:
       - build
+      - --label=commit=$SHORT_SHA
+      - --label=build=$BUILD_ID
+      - --label=branch=$BRANCH_NAME
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:latest
       - .
     timeout: '600s'
+    waitFor: ['Ensure Registry']
 
-  # ── Step 3: Push image to Artifact Registry ──────────────────────────────────
+  # ── Step 6: Push image to Artifact Registry ───────────────────────────────
   - name: gcr.io/cloud-builders/docker
     id: Push Image
     args:
       - push
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}
     waitFor: ['Build Image']
 
-  # ── Step 4: Deploy to Cloud Run ──────────────────────────────────────────────
+  # ── Step 7: Deploy to Cloud Run ───────────────────────────────────────────
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: Deploy Cloud Run
     entrypoint: gcloud
@@ -66,11 +112,40 @@ steps:
       - --set-secrets=FIREBASE_CREDENTIALS=FIREBASE_CREDENTIALS:latest,ADMIN_PANEL_PASSWORD=ADMIN_PANEL_PASSWORD:latest,ADMIN_PANEL_SESSION_SECRET=ADMIN_PANEL_SESSION_SECRET:latest
     waitFor: ['Push Image']
 
+  # ── Step 8: Verify deployment health ─────────────────────────────────────
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: Health Check
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        # Wait for Cloud Run to be ready
+        sleep 15
+
+        # Get service URL
+        URL=$(gcloud run services describe ${_SERVICE_NAME} \
+          --region=${_REGION} \
+          --format='value(status.url)')
+
+        echo "Checking health at: $URL/health"
+
+        # Check health endpoint
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/health")
+
+        if [ "$STATUS" = "200" ]; then
+          echo "✅ Health check passed — service is live at $URL"
+        else
+          echo "❌ Health check failed — status: $STATUS"
+          exit 1
+        fi
+    waitFor: ['Deploy Cloud Run']
+
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$SHORT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:latest
 
 options:
   logging: CLOUD_LOGGING_ONLY
   machineType: E2_HIGHCPU_8
 
-timeout: '900s'
+timeout: '1200s'

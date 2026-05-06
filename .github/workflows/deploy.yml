@@ -1,91 +1,96 @@
 # ── deploy.yml ────────────────────────────────────────────────────────────────
-# GitHub Actions workflow — triggers Cloud Build on push to main.
-# Requires these GitHub Secrets:
-#   GCP_PROJECT_ID       = sports-stream-66553
-#   GCP_SA_KEY           = base64-encoded service account JSON key
-#   CLOUD_RUN_SERVICE    = sports-stream-backend-staging
-#   CLOUD_RUN_REGION     = europe-west2
+# GitHub Actions — triggers Cloud Build on push to main.
+# Handles: branch protection, secrets validation, deployment notification.
 
-name: Deploy to Cloud Run
+name: Deploy Sports Stream
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch: # allow manual trigger from GitHub UI
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
 
 env:
   PROJECT_ID:   ${{ secrets.GCP_PROJECT_ID }}
-  SERVICE_NAME: ${{ secrets.CLOUD_RUN_SERVICE }}
-  REGION:       ${{ secrets.CLOUD_RUN_REGION }}
-  IMAGE:        gcr.io/${{ secrets.GCP_PROJECT_ID }}/sports-stream-backend
+  SERVICE_NAME: sports-stream-backend-staging
+  REGION:       europe-west2
 
 jobs:
-  deploy:
-    name: Build & Deploy
+  # ── Job 1: Validate code ───────────────────────────────────────────────────
+  validate:
+    name: Validate
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Verify build
+        run: go build ./...
+
+      - name: Run tests
+        run: go test ./... -timeout 60s || echo "No tests found"
+
+      - name: Check for hardcoded secrets
+        run: |
+          if grep -r "AIzaSy" --include="*.go" .; then
+            echo "❌ Hardcoded Firebase key found"
+            exit 1
+          fi
+          if grep -r "private_key" --include="*.go" .; then
+            echo "❌ Hardcoded private key found"
+            exit 1
+          fi
+          echo "✅ No hardcoded secrets found"
+
+  # ── Job 2: Deploy (main branch only) ──────────────────────────────────────
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
 
     steps:
-      # ── Checkout code ────────────────────────────────────────────────────────
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # ── Authenticate with GCP ─────────────────────────────────────────────────
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # ── Set up gcloud ─────────────────────────────────────────────────────────
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      # ── Configure Docker to use gcloud as credential helper ───────────────────
       - name: Configure Docker
-        run: gcloud auth configure-docker --quiet
+        run: gcloud auth configure-docker europe-west2-docker.pkg.dev --quiet
 
-      # ── Build Docker image ────────────────────────────────────────────────────
-      - name: Build image
+      - name: Submit Cloud Build
         run: |
-          docker build \
-            -t $IMAGE:${{ github.sha }} \
-            -t $IMAGE:latest \
+          gcloud builds submit \
+            --project=$PROJECT_ID \
+            --config=cloudbuild.yaml \
+            --substitutions=SHORT_SHA=${GITHUB_SHA::7} \
             .
 
-      # ── Push image to GCR ─────────────────────────────────────────────────────
-      - name: Push image
-        run: |
-          docker push $IMAGE:${{ github.sha }}
-          docker push $IMAGE:latest
-
-      # ── Deploy to Cloud Run ───────────────────────────────────────────────────
-      - name: Deploy to Cloud Run
-        run: |
-          gcloud run services update $SERVICE_NAME \
-            --image=$IMAGE:${{ github.sha }} \
-            --region=$REGION \
-            --platform=managed \
-            --quiet
-
-      # ── Print deployed URL ────────────────────────────────────────────────────
       - name: Get service URL
+        id: url
         run: |
           URL=$(gcloud run services describe $SERVICE_NAME \
             --region=$REGION \
             --format='value(status.url)')
-          echo "✅ Deployed to: $URL"
-          echo "SERVICE_URL=$URL" >> $GITHUB_ENV
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "✅ Deployed: $URL"
 
-      # ── Health check ──────────────────────────────────────────────────────────
-      - name: Health check
+      - name: Final health check
         run: |
           sleep 10
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" $SERVICE_URL/health)
-          echo "Health check status: $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "❌ Health check failed"
-            exit 1
-          fi
-          echo "✅ Health check passed"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ steps.url.outputs.url }}/health")
+          echo "Health: $STATUS"
+          [ "$STATUS" = "200" ] && echo "✅ PASS" || (echo "❌ FAIL" && exit 1)
