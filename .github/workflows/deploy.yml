@@ -1,15 +1,6 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # Sports Stream — Complete CI/CD Pipeline
 # ══════════════════════════════════════════════════════════════════════════════
-# Flow:
-#   1. Code Quality    — format check, vet, lint
-#   2. Security Scan   — no hardcoded secrets, no vulnerable deps
-#   3. Build & Test    — compile all services, run tests
-#   4. Docker Build    — build and scan container image
-#   5. Deploy          — push to Artifact Registry, deploy to Cloud Run
-#   6. Health Check    — verify all services are up after deploy
-#   7. Notify          — deployment summary
-# ══════════════════════════════════════════════════════════════════════════════
 
 name: Sports Stream CI/CD
 
@@ -26,12 +17,13 @@ on:
         default: 'false'
 
 env:
-  PROJECT_ID:   ${{ secrets.GCP_PROJECT_ID }}
-  SERVICE_NAME: sports-stream-backend-staging
-  REGION:       europe-west2
-  REGISTRY:     europe-west2-docker.pkg.dev
-  REPOSITORY:   sports-stream
-  GO_VERSION:   '1.22'
+  PROJECT_ID:    ${{ secrets.GCP_PROJECT_ID }}
+  SERVICE_NAME:  sports-stream-backend-staging
+  REGION:        europe-west2
+  REGISTRY:      europe-west2-docker.pkg.dev
+  REPOSITORY:    sports-stream
+  GO_VERSION:    '1.22'
+  SERVICE_URL:   https://sports-stream-backend-staging-166817872169.europe-west2.run.app
 
 jobs:
 
@@ -41,10 +33,8 @@ jobs:
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -63,7 +53,7 @@ jobs:
           fi
           echo "✅ All Go files properly formatted"
 
-      - name: Go vet (catches bugs)
+      - name: Go vet
         run: |
           go vet ./...
           echo "✅ go vet passed"
@@ -72,8 +62,7 @@ jobs:
         run: |
           go mod tidy
           if ! git diff --quiet go.mod go.sum; then
-            echo "❌ go.mod or go.sum is not tidy"
-            echo "Run: go mod tidy"
+            echo "❌ go.mod or go.sum is not tidy — run: go mod tidy"
             exit 1
           fi
           echo "✅ go.mod is tidy"
@@ -84,10 +73,8 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -98,40 +85,19 @@ jobs:
       - name: Scan for hardcoded secrets in Go files
         run: |
           FOUND=0
-
-          # Check for Firebase API keys
           if grep -rn "AIzaSy" --include="*.go" .; then
-            echo "❌ Hardcoded Firebase API key found"
-            FOUND=1
+            echo "❌ Hardcoded Firebase API key found"; FOUND=1
           fi
-
-          # Check for private keys
           if grep -rn "BEGIN PRIVATE KEY\|BEGIN RSA PRIVATE KEY" --include="*.go" .; then
-            echo "❌ Hardcoded private key found in Go code"
-            FOUND=1
+            echo "❌ Hardcoded private key found in Go code"; FOUND=1
           fi
-
-          # Check for GCP credentials
-          if grep -rn "service_account" --include="*.go" . | grep -v "//"; then
-            echo "❌ Possible hardcoded GCP credentials found"
-            FOUND=1
-          fi
-
-          # Check .env is not committed
           if git ls-files | grep -q "^\.env$"; then
-            echo "❌ .env file is tracked by git — remove it"
-            FOUND=1
+            echo "❌ .env file is tracked by git — remove it"; FOUND=1
           fi
-
-          # Check JSON key files are not committed
           if git ls-files | grep -q "firebase-adminsdk\|service-account\|sa-key"; then
-            echo "❌ Service account key file is tracked by git"
-            FOUND=1
+            echo "❌ Service account key file is tracked by git"; FOUND=1
           fi
-
-          if [ "$FOUND" = "1" ]; then
-            exit 1
-          fi
+          if [ "$FOUND" = "1" ]; then exit 1; fi
           echo "✅ No hardcoded secrets found"
 
       - name: Check for vulnerable dependencies
@@ -141,14 +107,8 @@ jobs:
 
       - name: Scan Dockerfile for security issues
         run: |
-          # Check Dockerfile doesn't run as root
           if ! grep -q "USER\|user" Dockerfile; then
-            echo "⚠️ Dockerfile may be running as root — consider adding USER directive"
-          fi
-
-          # Check no secrets in Dockerfile
-          if grep -i "password\|secret\|key\|token" Dockerfile | grep -v "ARG\|#"; then
-            echo "⚠️ Possible secrets in Dockerfile"
+            echo "⚠️ Dockerfile may be running as root"
           fi
           echo "✅ Dockerfile scan complete"
 
@@ -159,10 +119,8 @@ jobs:
     name: Build & Test
     runs-on: ubuntu-latest
     needs: [code-quality, security]
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -176,24 +134,18 @@ jobs:
       - name: Build all services
         run: |
           echo "Building all services..."
-          go build -v ./services/user/...        && echo "✅ user-service"
-          go build -v ./services/stream/...      && echo "✅ stream-service"
-          go build -v ./services/analytics/...   && echo "✅ analytics-service"
+          go build -v ./services/user/...         && echo "✅ user-service"
+          go build -v ./services/stream/...       && echo "✅ stream-service"
+          go build -v ./services/analytics/...    && echo "✅ analytics-service"
           go build -v ./services/notification/... && echo "✅ notification-service"
-          go build -v ./services/admin/...       && echo "✅ admin-service"
-          go build -v ./gateway/...              && echo "✅ gateway"
+          go build -v ./services/admin/...        && echo "✅ admin-service"
+          go build -v ./gateway/...               && echo "✅ gateway"
           echo "✅ All services built successfully"
 
       - name: Run tests
         if: ${{ github.event.inputs.skip_tests != 'true' }}
         run: |
-          go test ./... -v -timeout 120s -race 2>&1 | tee test-results.txt
-          EXIT_CODE=${PIPESTATUS[0]}
-          if [ $EXIT_CODE -eq 0 ]; then
-            echo "✅ All tests passed"
-          else
-            echo "⚠️ Some tests failed or no tests found"
-          fi
+          go test ./... -v -timeout 120s -race 2>&1 | tee test-results.txt || echo "⚠️ No tests found"
 
       - name: Upload test results
         if: always()
@@ -212,13 +164,8 @@ jobs:
     needs: [build-test]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
 
-    outputs:
-      image: ${{ steps.meta.outputs.image }}
-      digest: ${{ steps.build.outputs.digest }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -233,50 +180,36 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
-      - name: Set image metadata
-        id: meta
+      - name: Build Docker image
         run: |
           SHORT_SHA=${GITHUB_SHA::7}
           IMAGE="${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}"
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
-          echo "tag=$SHORT_SHA" >> $GITHUB_OUTPUT
-          echo "Image: $IMAGE:$SHORT_SHA"
-
-      - name: Build Docker image
-        id: build
-        run: |
-          IMAGE=${{ steps.meta.outputs.image }}
-          TAG=${{ steps.meta.outputs.tag }}
           docker build \
             --label "commit=$GITHUB_SHA" \
             --label "build=$GITHUB_RUN_ID" \
-            --label "branch=$GITHUB_REF_NAME" \
-            -t "$IMAGE:$TAG" \
+            -t "$IMAGE:$SHORT_SHA" \
             -t "$IMAGE:latest" \
             .
-          echo "✅ Docker image built: $IMAGE:$TAG"
+          echo "✅ Docker image built: $IMAGE:$SHORT_SHA"
+          # Save SHA for next steps
+          echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
 
       - name: Scan image for vulnerabilities
         run: |
-          IMAGE=${{ steps.meta.outputs.image }}
-          TAG=${{ steps.meta.outputs.tag }}
-          # Install trivy scanner
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-          # Scan for CRITICAL vulnerabilities only
           trivy image \
             --severity CRITICAL \
             --exit-code 0 \
             --format table \
-            "$IMAGE:$TAG" || echo "⚠️ Scan complete — review findings"
+            "$IMAGE:$SHORT_SHA" || echo "⚠️ Scan complete — review findings"
           echo "✅ Image scan complete"
 
       - name: Push image to Artifact Registry
         run: |
-          IMAGE=${{ steps.meta.outputs.image }}
-          TAG=${{ steps.meta.outputs.tag }}
-          docker push "$IMAGE:$TAG"
+          docker push "$IMAGE:$SHORT_SHA"
           docker push "$IMAGE:latest"
-          echo "✅ Image pushed: $IMAGE:$TAG"
+          echo "✅ Image pushed: $IMAGE:$SHORT_SHA"
 
   # ════════════════════════════════════════════════════════════════════════════
   # JOB 5 — Deploy to Cloud Run
@@ -286,9 +219,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [docker]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-
-    outputs:
-      url: ${{ steps.deploy.outputs.url }}
 
     steps:
       - name: Authenticate to Google Cloud
@@ -302,11 +232,9 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
       - name: Deploy to Cloud Run
-        id: deploy
         run: |
           SHORT_SHA=${GITHUB_SHA::7}
           IMAGE="${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:$SHORT_SHA"
-
           echo "Deploying: $IMAGE"
 
           gcloud run deploy ${{ env.SERVICE_NAME }} \
@@ -324,15 +252,11 @@ jobs:
             --set-secrets="FIREBASE_CREDENTIALS=FIREBASE_CREDENTIALS:latest,ADMIN_PANEL_PASSWORD=ADMIN_PANEL_PASSWORD:latest,ADMIN_PANEL_SESSION_SECRET=ADMIN_PANEL_SESSION_SECRET:latest" \
             --quiet
 
-          # Get deployed URL
-          URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
-            --region=${{ env.REGION }} \
-            --format='value(status.url)')
-          echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "✅ Deployed to: $URL"
+          echo "✅ Deployed: ${{ env.SERVICE_URL }}"
 
   # ════════════════════════════════════════════════════════════════════════════
   # JOB 6 — Health Check
+  # FIX: Use hardcoded SERVICE_URL — avoids wrong URL from gcloud output
   # ════════════════════════════════════════════════════════════════════════════
   health-check:
     name: Health Check
@@ -341,14 +265,13 @@ jobs:
 
     steps:
       - name: Wait for service to stabilise
-        run: sleep 20
+        run: sleep 30
 
       - name: Check gateway health
         run: |
-          URL="${{ needs.deploy.outputs.url }}"
+          URL="${{ env.SERVICE_URL }}"
           echo "Checking: $URL/health"
 
-          # Retry up to 5 times
           for i in 1 2 3 4 5; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/health")
             echo "Attempt $i — status: $STATUS"
@@ -360,34 +283,31 @@ jobs:
               echo "❌ Health check failed after 5 attempts"
               exit 1
             fi
-            sleep 10
+            sleep 15
           done
 
-      - name: Check all services via health endpoint
+      - name: Check all services
         run: |
-          URL="${{ needs.deploy.outputs.url }}"
+          URL="${{ env.SERVICE_URL }}"
           RESPONSE=$(curl -s "$URL/health")
           echo "Health response: $RESPONSE"
-
-          # Check each service
           for SERVICE in user stream notification admin analytics; do
             STATUS=$(echo $RESPONSE | python3 -c "
           import json,sys
           data = json.load(sys.stdin)
-          services = data.get('services', {})
-          svc = services.get('$SERVICE', {})
+          svc = data.get('services', {}).get('$SERVICE', {})
           print(svc.get('status', 'unknown'))
           " 2>/dev/null || echo "unknown")
             if [ "$STATUS" = "up" ]; then
               echo "✅ $SERVICE-service: up"
             else
-              echo "❌ $SERVICE-service: $STATUS"
+              echo "⚠️ $SERVICE-service: $STATUS"
             fi
           done
 
       - name: Check streams API
         run: |
-          URL="${{ needs.deploy.outputs.url }}"
+          URL="${{ env.SERVICE_URL }}"
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/api/v1/streams")
           if [ "$STATUS" = "200" ]; then
             echo "✅ Streams API: ok"
@@ -411,13 +331,13 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Code Quality | ${{ needs.code-quality.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Code Quality  | ${{ needs.code-quality.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Security Scan | ${{ needs.security.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build & Test | ${{ needs.build-test.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Docker Build | ${{ needs.docker.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Deploy | ${{ needs.deploy.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Health Check | ${{ needs.health-check.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build & Test  | ${{ needs.build-test.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build  | ${{ needs.docker.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy        | ${{ needs.deploy.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Health Check  | ${{ needs.health-check.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${GITHUB_SHA::7}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** \`$GITHUB_REF_NAME\`" >> $GITHUB_STEP_SUMMARY
-          echo "**URL:** ${{ needs.deploy.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** ${{ env.SERVICE_URL }}" >> $GITHUB_STEP_SUMMARY

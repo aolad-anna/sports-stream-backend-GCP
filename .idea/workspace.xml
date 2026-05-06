@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="fix: update gitignore — remove credentials from tracking">
+    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="fix: upgrade grpc to v1.79.3 — CVE-2026-33186">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -205,7 +205,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fix gateway permission denied" />
     <MESSAGE value="dd" />
     <MESSAGE value="new sh" />
     <MESSAGE value="fix binary permissions using /usr/local/bin" />
@@ -230,7 +229,8 @@
     <MESSAGE value="fix: go formatting" />
     <MESSAGE value="fix: tidy go.mod and go.sum" />
     <MESSAGE value="fix: update gitignore — remove credentials from tracking" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix: update gitignore — remove credentials from tracking" />
+    <MESSAGE value="fix: upgrade grpc to v1.79.3 — CVE-2026-33186" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: upgrade grpc to v1.79.3 — CVE-2026-33186" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
