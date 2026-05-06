@@ -4,8 +4,14 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="fix: upgrade grpc to v1.79.3 — CVE-2026-33186">
+    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="fix: service url">
+      <change afterPath="$PROJECT_DIR$/cmd/transcode/main.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/public/upload.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/services/video/main.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gateway/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/gateway/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/start.sh" beforeDir="false" afterPath="$PROJECT_DIR$/start.sh" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -205,7 +211,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="dd" />
     <MESSAGE value="new sh" />
     <MESSAGE value="fix binary permissions using /usr/local/bin" />
     <MESSAGE value="minor changes" />
@@ -230,7 +235,8 @@
     <MESSAGE value="fix: tidy go.mod and go.sum" />
     <MESSAGE value="fix: update gitignore — remove credentials from tracking" />
     <MESSAGE value="fix: upgrade grpc to v1.79.3 — CVE-2026-33186" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix: upgrade grpc to v1.79.3 — CVE-2026-33186" />
+    <MESSAGE value="fix: service url" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: service url" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>

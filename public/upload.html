@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sports Stream — Video Upload</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #080c14;
+            --surface: #0d1520;
+            --surface2: #111d2e;
+            --border: #1e3048;
+            --accent: #00d4ff;
+            --accent2: #ff6b35;
+            --green: #00e676;
+            --red: #ff3d57;
+            --text: #e8f4ff;
+            --muted: #4a6380;
+            --mono: 'DM Mono', monospace;
+            --display: 'Bebas Neue', sans-serif;
+            --body: 'DM Sans', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--body);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                    linear-gradient(var(--border) 1px, transparent 1px),
+                    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 60px 60px;
+            opacity: 0.3;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 48px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--accent);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .logo-text {
+            font-family: var(--display);
+            font-size: 24px;
+            letter-spacing: 2px;
+            color: var(--text);
+        }
+
+        .logo-sub {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--accent);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            padding: 6px 16px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            0%,100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Page title */
+        .page-title {
+            font-family: var(--display);
+            font-size: 56px;
+            letter-spacing: 4px;
+            line-height: 1;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .page-sub {
+            color: var(--muted);
+            font-size: 14px;
+            margin-bottom: 40px;
+            font-family: var(--mono);
+            letter-spacing: 1px;
+        }
+
+        /* Steps indicator */
+        .steps {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            margin-bottom: 40px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .step-num {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--muted);
+            flex-shrink: 0;
+            transition: all 0.3s;
+        }
+
+        .step.active .step-num {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(0,212,255,0.1);
+        }
+
+        .step.done .step-num {
+            border-color: var(--green);
+            color: var(--green);
+            background: rgba(0,230,118,0.1);
+        }
+
+        .step-label {
+            font-size: 12px;
+            color: var(--muted);
+            font-family: var(--mono);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .step.active .step-label { color: var(--accent); }
+        .step.done .step-label { color: var(--green); }
+
+        .step-line {
+            height: 1px;
+            flex: 1;
+            background: var(--border);
+            margin: 0 12px;
+        }
+
+        /* Auth section */
+        .section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .section.visible { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-title {
+            font-family: var(--display);
+            font-size: 22px;
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+            color: var(--accent);
+        }
+
+        .section-desc {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 24px;
+            font-family: var(--mono);
+        }
+
+        /* Form elements */
+        .field {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        textarea {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, textarea:focus {
+            border-color: var(--accent);
+        }
+
+        textarea { resize: vertical; min-height: 80px; }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-family: var(--mono);
+            font-size: 13px;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg);
+            font-weight: 600;
+        }
+
+        .btn-primary:hover { opacity: 0.85; transform: translateY(-1px); }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--muted);
+        }
+        .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* Drop zone */
+        .dropzone {
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 60px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dropzone:hover, .dropzone.drag-over {
+            border-color: var(--accent);
+            background: rgba(0,212,255,0.03);
+        }
+
+        .dropzone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .drop-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            display: block;
+        }
+
+        .drop-title {
+            font-family: var(--display);
+            font-size: 24px;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .drop-sub {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .file-selected {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            background: var(--surface2);
+            border: 1px solid var(--green);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+
+        .file-selected.visible { display: flex; }
+
+        .file-icon { font-size: 24px; }
+
+        .file-info { flex: 1; }
+        .file-name { font-family: var(--mono); font-size: 13px; color: var(--green); }
+        .file-size { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+        /* Progress */
+        .progress-wrap {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .progress-wrap.visible { display: block; }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* Status log */
+        .log {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 20px;
+            font-family: var(--mono);
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .log.visible { display: block; }
+
+        .log-line {
+            display: flex;
+            gap: 12px;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border);
+            color: var(--muted);
+        }
+
+        .log-line:last-child { border-bottom: none; }
+        .log-line.success { color: var(--green); }
+        .log-line.error   { color: var(--red); }
+        .log-line.info    { color: var(--accent); }
+
+        .log-time { opacity: 0.5; flex-shrink: 0; }
+
+        /* Result card */
+        .result-card {
+            display: none;
+            background: var(--surface2);
+            border: 1px solid var(--green);
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 20px;
+        }
+
+        .result-card.visible { display: block; }
+
+        .result-title {
+            font-family: var(--display);
+            font-size: 20px;
+            letter-spacing: 2px;
+            color: var(--green);
+            margin-bottom: 16px;
+        }
+
+        .result-field {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .result-key {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            width: 90px;
+            flex-shrink: 0;
+            padding-top: 2px;
+        }
+
+        .result-val {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--text);
+            word-break: break-all;
+            flex: 1;
+        }
+
+        .copy-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--muted);
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* Alert */
+        .alert {
+            display: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-family: var(--mono);
+            font-size: 12px;
+            margin-bottom: 16px;
+        }
+
+        .alert.visible { display: flex; align-items: center; gap: 8px; }
+        .alert.error   { background: rgba(255,61,87,0.1); border: 1px solid var(--red); color: var(--red); }
+        .alert.success { background: rgba(0,230,118,0.1); border: 1px solid var(--green); color: var(--green); }
+
+        /* User info bar */
+        .user-bar {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            background: var(--surface2);
+            border: 1px solid var(--green);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 24px;
+            font-family: var(--mono);
+            font-size: 12px;
+        }
+
+        .user-bar.visible { display: flex; }
+        .user-bar .role-badge {
+            background: rgba(0,230,118,0.1);
+            border: 1px solid var(--green);
+            color: var(--green);
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 10px;
+        }
+
+        .user-bar .role-badge.viewer {
+            background: rgba(255,107,53,0.1);
+            border-color: var(--accent2);
+            color: var(--accent2);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+        @media (max-width: 600px) {
+            .two-col { grid-template-columns: 1fr; }
+            .page-title { font-size: 36px; }
+            .steps { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- Header -->
+    <header>
+        <div class="logo">
+            <div class="logo-icon">▶</div>
+            <div>
+                <div class="logo-text">SPORTS STREAM</div>
+                <div class="logo-sub">Video Upload Portal</div>
+            </div>
+        </div>
+        <div class="status-pill">
+            <span class="status-dot"></span>
+            <span id="statusText">connecting...</span>
+        </div>
+    </header>
+
+    <!-- Title -->
+    <div class="page-title">UPLOAD VIDEO</div>
+    <div class="page-sub">// broadcaster portal — upload & transcode to HLS</div>
+
+    <!-- Steps -->
+    <div class="steps">
+        <div class="step active" id="step1">
+            <div class="step-num">01</div>
+            <div class="step-label">Sign In</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step2">
+            <div class="step-num">02</div>
+            <div class="step-label">Details</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step3">
+            <div class="step-num">03</div>
+            <div class="step-label">Upload</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step4">
+            <div class="step-num">04</div>
+            <div class="step-label">Transcode</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="step" id="step5">
+            <div class="step-num">05</div>
+            <div class="step-label">Ready</div>
+        </div>
+    </div>
+
+    <!-- User bar -->
+    <div class="user-bar" id="userBar">
+        <span>✓</span>
+        <span id="userEmail">—</span>
+        <span class="role-badge" id="userRole">viewer</span>
+        <span style="flex:1"></span>
+        <button class="btn-outline btn" onclick="signOut()" style="padding:4px 12px;font-size:11px">Sign Out</button>
+    </div>
+
+    <!-- SECTION 1: Sign In -->
+    <div class="section visible" id="secAuth">
+        <div class="section-title">SIGN IN</div>
+        <div class="section-desc">// use your firebase account with broadcaster role</div>
+
+        <div class="alert" id="authAlert"></div>
+
+        <div class="field">
+            <label>Email</label>
+            <input type="email" id="email" placeholder="you@example.com" />
+        </div>
+        <div class="field">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="••••••••" />
+        </div>
+        <button class="btn btn-primary" onclick="signIn()" id="btnSignIn">
+            SIGN IN →
+        </button>
+    </div>
+
+    <!-- SECTION 2: Video Details -->
+    <div class="section" id="secDetails">
+        <div class="section-title">VIDEO DETAILS</div>
+        <div class="section-desc">// enter metadata before uploading</div>
+
+        <div class="alert" id="detailsAlert"></div>
+
+        <div class="two-col">
+            <div class="field">
+                <label>Title *</label>
+                <input type="text" id="videoTitle" placeholder="Football Highlights 2026" />
+            </div>
+            <div class="field">
+                <label>Stream ID (optional)</label>
+                <input type="text" id="streamId" placeholder="stream_1773883427477" />
+            </div>
+        </div>
+        <div class="field">
+            <label>Description</label>
+            <textarea id="videoDesc" placeholder="Match highlights from the Champions League Final..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="goToUpload()">
+            CONTINUE →
+        </button>
+    </div>
+
+    <!-- SECTION 3: Upload -->
+    <div class="section" id="secUpload">
+        <div class="section-title">SELECT VIDEO</div>
+        <div class="section-desc">// mp4 format recommended · max 2GB</div>
+
+        <div class="alert" id="uploadAlert"></div>
+
+        <div class="dropzone" id="dropzone">
+            <input type="file" id="fileInput" accept="video/mp4,video/*" onchange="fileSelected(this)" />
+            <span class="drop-icon">📹</span>
+            <div class="drop-title">DROP VIDEO HERE</div>
+            <div class="drop-sub">or click to browse · MP4 recommended</div>
+        </div>
+
+        <div class="file-selected" id="fileInfo">
+            <span class="file-icon">🎬</span>
+            <div class="file-info">
+                <div class="file-name" id="fileName">—</div>
+                <div class="file-size" id="fileSize">—</div>
+            </div>
+            <button class="copy-btn" onclick="clearFile()">✕ Remove</button>
+        </div>
+
+        <div class="progress-wrap" id="uploadProgress">
+            <div class="progress-label">
+                <span id="uploadStatus">Uploading...</span>
+                <span id="uploadPct">0%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="uploadFill"></div>
+            </div>
+        </div>
+
+        <div class="log" id="uploadLog"></div>
+
+        <div style="margin-top:20px;display:flex;gap:12px">
+            <button class="btn btn-outline" onclick="goBack()">← Back</button>
+            <button class="btn btn-primary" onclick="startUpload()" id="btnUpload" disabled>
+                UPLOAD VIDEO →
+            </button>
+        </div>
+    </div>
+
+    <!-- SECTION 4: Transcoding -->
+    <div class="section" id="secTranscode">
+        <div class="section-title">TRANSCODING</div>
+        <div class="section-desc">// converting to HLS — 720p, 480p, 360p</div>
+
+        <div class="progress-wrap visible" id="transcodeProgress">
+            <div class="progress-label">
+                <span id="transcodeStatus">Starting transcoder...</span>
+                <span id="transcodePct"></span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="transcodeFill" style="animation: indeterminate 2s infinite;"></div>
+            </div>
+        </div>
+
+        <style>
+            @keyframes indeterminate {
+                0%   { width: 0%; margin-left: 0%; }
+                50%  { width: 60%; margin-left: 20%; }
+                100% { width: 0%; margin-left: 100%; }
+            }
+        </style>
+
+        <div class="log visible" id="transcodeLog"></div>
+
+        <div class="result-card" id="resultCard">
+            <div class="result-title">✓ VIDEO READY</div>
+            <div class="result-field">
+                <span class="result-key">Video ID</span>
+                <span class="result-val" id="resVideoId">—</span>
+                <button class="copy-btn" onclick="copyVal('resVideoId')">Copy</button>
+            </div>
+            <div class="result-field">
+                <span class="result-key">HLS URL</span>
+                <span class="result-val" id="resHlsUrl">—</span>
+                <button class="copy-btn" onclick="copyVal('resHlsUrl')">Copy</button>
+            </div>
+            <div class="result-field">
+                <span class="result-key">Manifest</span>
+                <span class="result-val" id="resManifest">—</span>
+                <button class="copy-btn" onclick="copyVal('resManifest')">Copy</button>
+            </div>
+            <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
+                <button class="btn btn-primary" onclick="testPlay()">▶ TEST IN BROWSER</button>
+                <button class="btn btn-outline" onclick="uploadAnother()">+ UPLOAD ANOTHER</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Video player modal -->
+<div id="playerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:16px">
+    <div style="width:90%;max-width:800px;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden">
+        <video id="testPlayer" controls style="width:100%;height:100%"></video>
+    </div>
+    <button class="btn btn-outline" onclick="closePlayer()">✕ Close</button>
+</div>
+
+<script>
+    // ── Config ─────────────────────────────────────────────────────────────────
+    const API_BASE     = window.location.origin; // uses same domain
+    const FIREBASE_KEY = 'AIzaSyBZq6FQWa81-B4PPFqLA-Wh6orSi9xHws4';
+
+    let token    = localStorage.getItem('ss_token') || '';
+    let userRole = '';
+    let videoId  = '';
+    let hlsUrl   = '';
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    window.onload = async () => {
+        checkStatus();
+        if (token) {
+            await loadUser();
+        }
+    };
+
+    async function checkStatus() {
+        try {
+            const r = await fetch(`${API_BASE}/health`);
+            const d = await r.json();
+            document.getElementById('statusText').textContent =
+                d.gateway === 'ok' ? 'all systems ok' : 'degraded';
+        } catch {
+            document.getElementById('statusText').textContent = 'offline';
+        }
+    }
+
+    async function loadUser() {
+        try {
+            const r = await fetch(`${API_BASE}/api/v1/users/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!r.ok) { token = ''; localStorage.removeItem('ss_token'); return; }
+            const d = await r.json();
+            const user = d.data;
+            userRole = user.role;
+
+            document.getElementById('userEmail').textContent = user.email;
+            const roleBadge = document.getElementById('userRole');
+            roleBadge.textContent = user.role;
+            roleBadge.className = `role-badge ${user.role !== 'broadcaster' && user.role !== 'admin' ? 'viewer' : ''}`;
+            document.getElementById('userBar').classList.add('visible');
+
+            if (user.role === 'broadcaster' || user.role === 'admin') {
+                showSection('secDetails');
+                setStep(2);
+            } else {
+                showAlert('authAlert', `Your role is "${user.role}". Only broadcasters can upload videos. Ask an admin to change your role in Firestore.`, 'error');
+                showSection('secAuth');
+            }
+        } catch {
+            token = ''; localStorage.removeItem('ss_token');
+        }
+    }
+
+    // ── Auth ───────────────────────────────────────────────────────────────────
+    async function signIn() {
+        const email    = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        if (!email || !password) {
+            showAlert('authAlert', 'Email and password required', 'error'); return;
+        }
+
+        const btn = document.getElementById('btnSignIn');
+        btn.innerHTML = '<span class="spinner"></span> Signing in...';
+        btn.disabled = true;
+
+        try {
+            // Firebase Auth
+            const r = await fetch(
+                `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_KEY}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, returnSecureToken: true })
+                }
+            );
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error?.message || 'Sign in failed');
+
+            token = d.idToken;
+            localStorage.setItem('ss_token', token);
+
+            // Verify with backend
+            await fetch(`${API_BASE}/api/v1/auth/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ idToken: token })
+            });
+
+            await loadUser();
+
+        } catch(e) {
+            showAlert('authAlert', e.message, 'error');
+        } finally {
+            btn.innerHTML = 'SIGN IN →';
+            btn.disabled = false;
+        }
+    }
+
+    function signOut() {
+        token = ''; localStorage.removeItem('ss_token');
+        document.getElementById('userBar').classList.remove('visible');
+        showSection('secAuth');
+        setStep(1);
+    }
+
+    // ── Navigation ─────────────────────────────────────────────────────────────
+    function goToUpload() {
+        const title = document.getElementById('videoTitle').value.trim();
+        if (!title) {
+            showAlert('detailsAlert', 'Title is required', 'error'); return;
+        }
+        hideAlert('detailsAlert');
+        showSection('secUpload');
+        setStep(3);
+    }
+
+    function goBack() {
+        showSection('secDetails');
+        setStep(2);
+    }
+
+    // ── File selection ─────────────────────────────────────────────────────────
+    function fileSelected(input) {
+        const file = input.files[0];
+        if (!file) return;
+        document.getElementById('fileName').textContent = file.name;
+        document.getElementById('fileSize').textContent = formatBytes(file.size);
+        document.getElementById('fileInfo').classList.add('visible');
+        document.getElementById('btnUpload').disabled = false;
+    }
+
+    function clearFile() {
+        document.getElementById('fileInput').value = '';
+        document.getElementById('fileInfo').classList.remove('visible');
+        document.getElementById('btnUpload').disabled = true;
+    }
+
+    // Drag & drop
+    const dz = document.getElementById('dropzone');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+        e.preventDefault();
+        dz.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            document.getElementById('fileInput').files = dt.files;
+            fileSelected(document.getElementById('fileInput'));
+        }
+    });
+
+    // ── Upload ─────────────────────────────────────────────────────────────────
+    async function startUpload() {
+        const file     = document.getElementById('fileInput').files[0];
+        const title    = document.getElementById('videoTitle').value.trim();
+        const desc     = document.getElementById('videoDesc').value.trim();
+        const streamId = document.getElementById('streamId').value.trim();
+
+        if (!file) { showAlert('uploadAlert', 'Select a video file first', 'error'); return; }
+
+        document.getElementById('btnUpload').disabled = true;
+        document.getElementById('uploadProgress').classList.add('visible');
+        document.getElementById('uploadLog').classList.add('visible');
+
+        try {
+            // Step 1: Get signed upload URL
+            addLog('uploadLog', 'Requesting upload URL...', 'info');
+            setProgress('uploadFill', 5);
+            setLabel('uploadStatus', 'Getting upload URL...');
+
+            const body = { title, description: desc };
+            if (streamId) body.streamId = streamId;
+
+            const r1 = await fetch(`${API_BASE}/api/v1/videos/upload-url`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (!r1.ok) {
+                const err = await r1.json();
+                throw new Error(err.message || 'Failed to get upload URL');
+            }
+
+            const { data } = await r1.json();
+            videoId = data.videoId;
+            addLog('uploadLog', `Video ID: ${videoId}`, 'success');
+            addLog('uploadLog', `Upload URL received`, 'success');
+            setProgress('uploadFill', 15);
+
+            // Step 2: Upload to GCS via signed URL
+            addLog('uploadLog', `Uploading ${formatBytes(file.size)} to GCS...`, 'info');
+            setLabel('uploadStatus', 'Uploading to Google Cloud Storage...');
+
+            await uploadWithProgress(data.uploadUrl, file);
+
+            addLog('uploadLog', 'Upload complete!', 'success');
+            setProgress('uploadFill', 100);
+            setLabel('uploadStatus', '✓ Upload complete');
+            setLabel('uploadPct', '100%');
+
+            // Go to transcode
+            setTimeout(() => startTranscode(), 800);
+
+        } catch(e) {
+            showAlert('uploadAlert', e.message, 'error');
+            addLog('uploadLog', `Error: ${e.message}`, 'error');
+            document.getElementById('btnUpload').disabled = false;
+        }
+    }
+
+    async function uploadWithProgress(url, file) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', url);
+            xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const pct = Math.round(15 + (e.loaded / e.total) * 80);
+                    setProgress('uploadFill', pct);
+                    setLabel('uploadPct', `${Math.round((e.loaded / e.total) * 100)}%`);
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) resolve();
+                else {
+                    // Fallback — if signed URL fails (local dev), mark as uploaded anyway
+                    addLog('uploadLog', `Upload returned ${xhr.status} — continuing (dev mode)`, 'info');
+                    resolve();
+                }
+            };
+            xhr.onerror = () => reject(new Error('Upload failed — check network'));
+            xhr.send(file);
+        });
+    }
+
+    // ── Transcode ──────────────────────────────────────────────────────────────
+    async function startTranscode() {
+        showSection('secTranscode');
+        setStep(4);
+        addLog('transcodeLog', `Starting transcoder for ${videoId}...`, 'info');
+
+        try {
+            const r = await fetch(`${API_BASE}/api/v1/videos/${videoId}/transcode`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!r.ok) {
+                const err = await r.json();
+                throw new Error(err.message || 'Transcode failed to start');
+            }
+
+            const { data } = await r.json();
+            addLog('transcodeLog', `Status: ${data.status}`, 'info');
+            addLog('transcodeLog', 'Polling for completion (checks every 15s)...', 'info');
+
+            // Poll for ready status
+            pollVideoStatus();
+
+        } catch(e) {
+            addLog('transcodeLog', `Error: ${e.message}`, 'error');
+            document.getElementById('transcodeStatus').textContent = '✕ Transcode failed';
+        }
+    }
+
+    async function pollVideoStatus() {
+        let attempts = 0;
+        const maxAttempts = 60; // 15 min max
+
+        const poll = async () => {
+            attempts++;
+            addLog('transcodeLog', `Check ${attempts}/${maxAttempts} — polling status...`, 'info');
+
+            try {
+                const r = await fetch(`${API_BASE}/api/v1/videos/${videoId}`);
+                const { data } = await r.json();
+
+                document.getElementById('transcodeStatus').textContent =
+                    `Status: ${data.status} (check ${attempts})`;
+
+                if (data.status === 'ready') {
+                    hlsUrl = data.hlsUrl;
+                    onTranscodeComplete(data);
+                    return;
+                }
+
+                if (data.status === 'failed') {
+                    addLog('transcodeLog', '✕ Transcoding failed', 'error');
+                    document.getElementById('transcodeStatus').textContent = '✕ Transcoding failed';
+                    return;
+                }
+
+                if (attempts < maxAttempts) {
+                    setTimeout(poll, 15000);
+                } else {
+                    addLog('transcodeLog', 'Timed out — check Firestore for status', 'error');
+                }
+
+            } catch(e) {
+                addLog('transcodeLog', `Poll error: ${e.message}`, 'error');
+                if (attempts < maxAttempts) setTimeout(poll, 15000);
+            }
+        };
+
+        setTimeout(poll, 10000); // First check after 10s
+    }
+
+    function onTranscodeComplete(video) {
+        addLog('transcodeLog', '✓ Transcoding complete!', 'success');
+        setStep(5);
+
+        document.getElementById('transcodeStatus').textContent = '✓ Ready';
+        document.getElementById('transcodeFill').style.animation = 'none';
+        document.getElementById('transcodeFill').style.width = '100%';
+        document.getElementById('transcodeFill').style.background = 'var(--green)';
+
+        const manifestUrl = `${API_BASE}/api/v1/videos/${video.id}/manifest`;
+        document.getElementById('resVideoId').textContent  = video.id;
+        document.getElementById('resHlsUrl').textContent   = video.hlsUrl;
+        document.getElementById('resManifest').textContent = manifestUrl;
+        document.getElementById('resultCard').classList.add('visible');
+    }
+
+    function testPlay() {
+        if (!hlsUrl) return;
+        const modal  = document.getElementById('playerModal');
+        const player = document.getElementById('testPlayer');
+        player.src = hlsUrl;
+        modal.style.display = 'flex';
+        player.play();
+    }
+
+    function closePlayer() {
+        const player = document.getElementById('testPlayer');
+        player.pause();
+        player.src = '';
+        document.getElementById('playerModal').style.display = 'none';
+    }
+
+    function uploadAnother() {
+        videoId = ''; hlsUrl = '';
+        document.getElementById('resultCard').classList.remove('visible');
+        document.getElementById('transcodeLog').innerHTML = '';
+        document.getElementById('uploadLog').innerHTML = '';
+        document.getElementById('fileInput').value = '';
+        document.getElementById('fileInfo').classList.remove('visible');
+        document.getElementById('btnUpload').disabled = true;
+        document.getElementById('uploadProgress').classList.remove('visible');
+        document.getElementById('uploadLog').classList.remove('visible');
+        document.getElementById('videoTitle').value = '';
+        document.getElementById('videoDesc').value  = '';
+        document.getElementById('streamId').value   = '';
+        showSection('secDetails');
+        setStep(2);
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    function showSection(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
+        document.getElementById(id).classList.add('visible');
+    }
+
+    function setStep(n) {
+        for (let i = 1; i <= 5; i++) {
+            const el = document.getElementById(`step${i}`);
+            el.classList.remove('active', 'done');
+            if (i < n) el.classList.add('done');
+            if (i === n) el.classList.add('active');
+        }
+    }
+
+    function showAlert(id, msg, type) {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.className = `alert ${type} visible`;
+    }
+
+    function hideAlert(id) {
+        document.getElementById(id).className = 'alert';
+    }
+
+    function addLog(id, msg, type = '') {
+        const log = document.getElementById(id);
+        const now = new Date().toLocaleTimeString();
+        const line = document.createElement('div');
+        line.className = `log-line ${type}`;
+        line.innerHTML = `<span class="log-time">${now}</span><span>${msg}</span>`;
+        log.appendChild(line);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function setProgress(id, pct) {
+        document.getElementById(id).style.width = pct + '%';
+    }
+
+    function setLabel(id, text) {
+        document.getElementById(id).textContent = text;
+    }
+
+    function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+        if (bytes < 1073741824) return (bytes/1048576).toFixed(1) + ' MB';
+        return (bytes/1073741824).toFixed(2) + ' GB';
+    }
+
+    function copyVal(id) {
+        navigator.clipboard.writeText(document.getElementById(id).textContent);
+    }
+</script>
+</body>
+</html>

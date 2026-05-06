@@ -24,16 +24,10 @@ func checkHealth(client *http.Client, endpoint string) serviceHealth {
 		return serviceHealth{Status: "down", URL: endpoint, Details: err.Error()}
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return serviceHealth{Status: "up", URL: endpoint}
 	}
-
-	return serviceHealth{
-		Status:  "down",
-		URL:     endpoint,
-		Details: resp.Status,
-	}
+	return serviceHealth{Status: "down", URL: endpoint, Details: resp.Status}
 }
 
 const landingPage = `<!DOCTYPE html>
@@ -63,6 +57,7 @@ const landingPage = `<!DOCTYPE html>
   .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer; border: none; transition: opacity 0.15s; }
   .btn:hover { opacity: 0.85; }
   .btn-primary { background: #0ea5e9; color: #fff; }
+  .btn-accent { background: #f97316; color: #fff; }
   .btn-outline { background: transparent; color: #94a3b8; border: 1px solid #334155; }
   .footer { margin-top: 48px; font-size: 11px; color: #334155; }
 </style>
@@ -89,23 +84,31 @@ const landingPage = `<!DOCTYPE html>
     <div class="endpoint"><span>POST</span> /api/v1/notifications/test</div>
     <div class="endpoint"><span>GET</span>  /health/notification</div>
   </div>
-	<div class="card">
-		<div class="card-header"><div class="dot-color" style="background:#b91c1c"></div><div><div class="card-title">admin-service</div><div class="card-port">:8084</div></div></div>
-		<div class="endpoint"><span>GET</span>  /admin</div>
-		<div class="endpoint"><span>GET</span>  /api/v1/admin/dashboard</div>
-		<div class="endpoint"><span>PATCH</span> /api/v1/admin/users/:uid/role</div>
-	</div>
+  <div class="card">
+    <div class="card-header"><div class="dot-color" style="background:#b91c1c"></div><div><div class="card-title">admin-service</div><div class="card-port">:8084</div></div></div>
+    <div class="endpoint"><span>GET</span>  /admin</div>
+    <div class="endpoint"><span>GET</span>  /api/v1/admin/dashboard</div>
+    <div class="endpoint"><span>PATCH</span> /api/v1/admin/users/:uid/role</div>
+  </div>
   <div class="card">
     <div class="card-header"><div class="dot-color" style="background:#10b981"></div><div><div class="card-title">analytics-service</div><div class="card-port">:8085</div></div></div>
     <div class="endpoint"><span>GET</span>  /api/v1/analytics/stream/:id</div>
     <div class="endpoint"><span>GET</span>  /health/analytics</div>
   </div>
+  <div class="card">
+    <div class="card-header"><div class="dot-color" style="background:#0ea5e9"></div><div><div class="card-title">video-service</div><div class="card-port">:8086</div></div></div>
+    <div class="endpoint"><span>POST</span> /api/v1/videos/upload-url</div>
+    <div class="endpoint"><span>GET</span>  /api/v1/videos</div>
+    <div class="endpoint"><span>GET</span>  /api/v1/videos/:id/manifest</div>
+  </div>
 </div>
 <hr class="divider">
 <div class="links">
   <a class="btn btn-primary" href="/health">Health Check</a>
+  <a class="btn btn-accent" href="/upload">📹 Upload Video</a>
   <a class="btn btn-outline" href="/api/v1/streams">Live Streams</a>
-	<a class="btn btn-outline" href="/admin">Admin Console</a>
+  <a class="btn btn-outline" href="/api/v1/videos">Videos</a>
+  <a class="btn btn-outline" href="/admin">Admin Console</a>
 </div>
 <p class="footer">Sports Stream Platform &middot; CCC&apos;26 Cloud Computing Competition &middot; March 2026</p>
 </body>
@@ -117,7 +120,6 @@ func newProxy(target string) *httputil.ReverseProxy {
 }
 
 func main() {
-	// Scalingo injects PORT — must listen on it or app times out
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = os.Getenv("GATEWAY_PORT")
@@ -126,19 +128,17 @@ func main() {
 		port = "8080"
 	}
 
-	// Read from env when provided (Cloud Run), otherwise use local defaults.
 	userProxy := newProxy(util.Getenv("USER_SERVICE_URL", "http://127.0.0.1:8081"))
 	streamProxy := newProxy(util.Getenv("STREAM_SERVICE_URL", "http://127.0.0.1:8082"))
 	analyticsProxy := newProxy(util.Getenv("ANALYTICS_SERVICE_URL", "http://127.0.0.1:8085"))
 	notificationProxy := newProxy(util.Getenv("NOTIFICATION_SERVICE_URL", "http://127.0.0.1:8083"))
 	adminProxy := newProxy(util.Getenv("ADMIN_SERVICE_URL", "http://127.0.0.1:8084"))
+	videoProxy := newProxy(util.Getenv("VIDEO_SERVICE_URL", "http://127.0.0.1:8086"))
 
-	//userProxy := newProxy("http://127.0.0.1:8081")
-	//streamProxy := newProxy("http://127.0.0.1:8082")
-	//notificationProxy := newProxy("http://127.0.0.1:8083")
-	//adminProxy := newProxy("http://127.0.0.1:8084")
-	//analyticsProxy := newProxy("http://127.0.0.1:8085")
 	healthClient := &http.Client{Timeout: 2 * time.Second}
+
+	// Serve public folder for static files
+	http.Handle("/public/", http.StripPrefix("/public/", http.FileServer(http.Dir("/public"))))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -147,10 +147,16 @@ func main() {
 
 		switch {
 
-		// ── Root → landing page ────────────────────────────────────────────
 		case path == "/" || path == "":
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Write([]byte(landingPage))
+
+		case path == "/favicon.ico":
+			http.NotFound(w, r)
+
+		// ── Upload UI ──────────────────────────────────────────────────────
+		case path == "/upload":
+			http.ServeFile(w, r, "/public/upload.html")
 
 		// ── Health checks ──────────────────────────────────────────────────
 		case path == "/health":
@@ -161,8 +167,8 @@ func main() {
 				"notification": checkHealth(healthClient, "http://127.0.0.1:8083/health"),
 				"admin":        checkHealth(healthClient, "http://127.0.0.1:8084/health"),
 				"analytics":    checkHealth(healthClient, "http://127.0.0.1:8085/health"),
+				"video":        checkHealth(healthClient, "http://127.0.0.1:8086/health"),
 			}
-
 			overall := "ok"
 			for _, s := range services {
 				if s.Status != "up" {
@@ -171,7 +177,6 @@ func main() {
 					break
 				}
 			}
-
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"gateway":  overall,
 				"services": services,
@@ -196,6 +201,14 @@ func main() {
 		case path == "/health/analytics":
 			r.URL.Path = "/health"
 			analyticsProxy.ServeHTTP(w, r)
+
+		case path == "/health/video":
+			r.URL.Path = "/health"
+			videoProxy.ServeHTTP(w, r)
+
+		// ── video-service ──────────────────────────────────────────────────
+		case strings.HasPrefix(path, "/api/v1/videos"):
+			videoProxy.ServeHTTP(w, r)
 
 		// ── notification-service ───────────────────────────────────────────
 		case strings.HasPrefix(path, "/api/v1/notifications"):
@@ -223,14 +236,12 @@ func main() {
 		case strings.HasPrefix(path, "/api/v1/users"):
 			userProxy.ServeHTTP(w, r)
 
-		// ── default → user-service ─────────────────────────────────────────
 		default:
 			userProxy.ServeHTTP(w, r)
 		}
 	})
 
 	log.Printf(`{"gateway":"started","port":%q}`, port)
-
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("gateway: %v", err)
 	}

@@ -10,6 +10,8 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
+COPY public/ /public/
+
 COPY . .
 
 # Build all binaries and set execute permission in builder stage
@@ -18,6 +20,7 @@ RUN go build -o /bin/stream-service       ./services/stream/main.go       && chm
 RUN go build -o /bin/analytics-service    ./services/analytics/main.go    && chmod +x /bin/analytics-service
 RUN go build -o /bin/notification-service ./services/notification/main.go && chmod +x /bin/notification-service
 RUN go build -o /bin/admin-service        ./services/admin/main.go        && chmod +x /bin/admin-service
+RUN go build -o /bin/video-service        ./services/video/main.go        && chmod +x /bin/video-service
 RUN go build -o /bin/gateway              ./gateway/main.go               && chmod +x /bin/gateway
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────
@@ -31,6 +34,7 @@ COPY --from=builder /bin/stream-service       /usr/local/bin/stream-service
 COPY --from=builder /bin/analytics-service    /usr/local/bin/analytics-service
 COPY --from=builder /bin/notification-service /usr/local/bin/notification-service
 COPY --from=builder /bin/admin-service        /usr/local/bin/admin-service
+COPY --from=builder /bin/video-service        /usr/local/bin/video-service
 COPY --from=builder /bin/gateway              /usr/local/bin/gateway
 
 COPY start.sh /usr/local/bin/start.sh
