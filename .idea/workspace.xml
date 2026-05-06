@@ -6,7 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="fix issue">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/video/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/services/video/main.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -56,6 +55,7 @@
     "Go Build.go build sports-stream-backend/services/prescaler.executor": "Run",
     "Go Build.go build sports-stream-backend/services/stream.executor": "Run",
     "Go Build.go build sports-stream-backend/services/user.executor": "Run",
+    "Go Build.go build sports-stream-backend/services/video.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.GoLinterPluginOnboarding": "true",
     "RunOnceActivity.GoLinterPluginStorageMigration": "true",
@@ -91,8 +91,19 @@
         <option value="GoApplicationRunConfiguration" />
       </set>
     </option>
+    <option name="configurationStatuses">
+      <map>
+        <entry key="GoApplicationRunConfiguration">
+          <value>
+            <map>
+              <entry key="go build sports-stream-backend/services/video" value="STOPPED" />
+            </map>
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
-  <component name="RunManager" selected="Go Build.go build sports-stream-backend/services/analytics">
+  <component name="RunManager" selected="Go Build.go build sports-stream-backend/services/video">
     <configuration name="go build sports-stream-backend/services/analytics" type="GoApplicationRunConfiguration" factoryName="Go Application" nameIsGenerated="true">
       <module name="sports-stream-backend" />
       <working_directory value="$PROJECT_DIR$" />
@@ -177,10 +188,30 @@
       <pty_enabled value="true" />
       <method v="2" />
     </configuration>
+    <configuration name="go build sports-stream-backend/services/video" type="GoApplicationRunConfiguration" factoryName="Go Application" nameIsGenerated="true">
+      <module name="sports-stream-backend" />
+      <working_directory value="$PROJECT_DIR$" />
+      <EXTENSION ID="net.ashald.envfile">
+        <option name="IS_ENABLED" value="false" />
+        <option name="IS_SUBST" value="false" />
+        <option name="IS_PATH_MACRO_SUPPORTED" value="false" />
+        <option name="IS_IGNORE_MISSING_FILES" value="false" />
+        <option name="IS_ENABLE_EXPERIMENTAL_INTEGRATIONS" value="false" />
+        <ENTRIES>
+          <ENTRY IS_ENABLED="true" PARSER="runconfig" IS_EXECUTABLE="false" />
+        </ENTRIES>
+      </EXTENSION>
+      <kind value="PACKAGE" />
+      <package value="sports-stream-backend/services/video" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <method v="2" />
+    </configuration>
     <list>
       <item itemvalue="Go Build.go build sports-stream-backend/services/notification" />
       <item itemvalue="Go Build.go build sports-stream-backend/services/user" />
       <item itemvalue="Go Build.go build sports-stream-backend/services/analytics" />
+      <item itemvalue="Go Build.go build sports-stream-backend/services/video" />
       <item itemvalue="Go Build.go build sports-stream-backend/services/stream" />
     </list>
   </component>
