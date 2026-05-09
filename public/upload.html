@@ -1003,9 +1003,7 @@
             xhr.onload = () => {
                 if (xhr.status >= 200 && xhr.status < 300) resolve();
                 else {
-                    // Fallback — if signed URL fails (local dev), mark as uploaded anyway
-                    addLog('uploadLog', `Upload returned ${xhr.status} — continuing (dev mode)`, 'info');
-                    resolve();
+                    reject(new Error(`GCS upload failed — status: ${xhr.status}. Check CORS settings.`));
                 }
             };
             xhr.onerror = () => reject(new Error('Upload failed — check network'));

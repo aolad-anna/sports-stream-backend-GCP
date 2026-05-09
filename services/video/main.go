@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,7 +14,6 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/gorilla/mux"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/iamcredentials/v1"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -57,7 +55,6 @@ type handler struct {
 	gcs     *storage.Client
 	bucket  string
 	cdnBase string
-	saEmail string // service account email for signed URLs
 }
 
 func (h *handler) getUserRole(ctx context.Context, uid string) string {
@@ -76,7 +73,8 @@ func (h *handler) getUserRole(ctx context.Context, uid string) string {
 // Uses Application Default Credentials — automatic on Cloud Run.
 
 func getAuthToken(ctx context.Context) (string, error) {
-	ts, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
+	ts, err := google.DefaultTokenSource(ctx,
+		"https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
 		return "", fmt.Errorf("token source: %w", err)
 	}
@@ -87,28 +85,10 @@ func getAuthToken(ctx context.Context) (string, error) {
 	return tok.AccessToken, nil
 }
 
-// ── getServiceAccountEmail ────────────────────────────────────────────────────
-// Gets the SA email from GCE metadata — needed for signed URLs on Cloud Run.
-
-func getServiceAccountEmail(ctx context.Context) string {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		"http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email",
-		nil)
-	if err != nil {
-		return ""
-	}
-	req.Header.Set("Metadata-Flavor", "Google")
-	resp, err := (&http.Client{Timeout: 2 * time.Second}).Do(req)
-	if err != nil {
-		return ""
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	return strings.TrimSpace(string(body))
-}
-
 // ── POST /api/v1/videos/upload-url ───────────────────────────────────────────
-// FIX: Uses IAM-based signed URL — works on Cloud Run without a key file.
+// FIX: Instead of signed URL (which requires complex IAM setup),
+// we generate a resumable upload URL using the GCS JSON API with
+// our service account token. This works reliably on Cloud Run.
 
 func (h *handler) getUploadURL(w http.ResponseWriter, r *http.Request) {
 	uid, _ := middleware.UIDFromContext(r.Context())
@@ -138,63 +118,70 @@ func (h *handler) getUploadURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// FIX: Use IAM signing for Cloud Run — no key file needed
-	signedURL, err := h.generateSignedURL(r.Context(), gcsPath)
+	// FIX: Use GCS resumable upload URL via JSON API
+	// This requires only an OAuth2 token — no signing needed
+	uploadURL, err := h.createResumableUploadURL(r.Context(), gcsPath)
 	if err != nil {
-		log.Printf("video: signed URL failed: %v — using direct upload URL", err)
-		// Fallback: tell client to upload directly, we'll accept it
-		signedURL = fmt.Sprintf("https://storage.googleapis.com/upload/storage/v1/b/%s/o?uploadType=media&name=%s", h.bucket, gcsPath)
+		log.Printf("video: resumable upload URL failed: %v", err)
+		jsonError(w, "failed to generate upload URL", http.StatusInternalServerError)
+		return
 	}
 
 	jsonOK(w, map[string]any{
 		"videoId":   videoID,
-		"uploadUrl": signedURL,
+		"uploadUrl": uploadURL,
 		"gcsPath":   gcsPath,
 		"expiresIn": "15m",
 	})
 }
 
-// ── generateSignedURL ─────────────────────────────────────────────────────────
-// Uses IAM credentials API to sign — works on Cloud Run without a service account key file.
+// ── createResumableUploadURL ──────────────────────────────────────────────────
+// Creates a GCS resumable upload session URL using OAuth2 token.
+// No signing required — works on Cloud Run with any service account.
 
-func (h *handler) generateSignedURL(ctx context.Context, gcsPath string) (string, error) {
-	saEmail := h.saEmail
-	if saEmail == "" {
-		saEmail = getServiceAccountEmail(ctx)
-	}
-	if saEmail == "" {
-		saEmail = util.Getenv("SERVICE_ACCOUNT_EMAIL",
-			"firebase-adminsdk-fbsvc@sports-stream-66553.iam.gserviceaccount.com")
-	}
-
-	opts := &storage.SignedURLOptions{
-		Scheme:         storage.SigningSchemeV4,
-		Method:         "PUT",
-		Expires:        time.Now().Add(15 * time.Minute),
-		ContentType:    "video/mp4",
-		GoogleAccessID: saEmail,
-		SignBytes: func(b []byte) ([]byte, error) {
-			// Use IAM credentials API to sign — no key file needed on Cloud Run
-			iamSvc, err := iamcredentials.NewService(ctx)
-			if err != nil {
-				return nil, err
-			}
-			resp, err := iamSvc.Projects.ServiceAccounts.SignBlob(
-				fmt.Sprintf("projects/-/serviceAccounts/%s", saEmail),
-				&iamcredentials.SignBlobRequest{Payload: base64.StdEncoding.EncodeToString(b)},
-			).Do()
-			if err != nil {
-				return nil, err
-			}
-			return []byte(resp.SignedBlob), nil
-		},
-	}
-
-	url, err := h.gcs.Bucket(h.bucket).SignedURL(gcsPath, opts)
+func (h *handler) createResumableUploadURL(ctx context.Context, gcsPath string) (string, error) {
+	authToken, err := getAuthToken(ctx)
 	if err != nil {
-		return "", fmt.Errorf("SignedURL: %w", err)
+		return "", fmt.Errorf("auth token: %w", err)
 	}
-	return url, nil
+
+	// GCS JSON API resumable upload initiation
+	// FIX: URL-encode the object name (slashes must be %2F)
+	// Bucket name with dots works fine in path — no encoding needed
+	encodedPath := strings.NewReplacer("/", "%2F").Replace(gcsPath)
+	apiURL := fmt.Sprintf(
+		"https://storage.googleapis.com/upload/storage/v1/b/%s/o?uploadType=resumable&name=%s",
+		h.bucket, encodedPath,
+	)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL,
+		strings.NewReader("{}"))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Upload-Content-Type", "video/mp4")
+
+	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
+	if err != nil {
+		return "", fmt.Errorf("initiate upload: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("GCS returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	// The resumable upload URL is in the Location header
+	uploadURL := resp.Header.Get("Location")
+	if uploadURL == "" {
+		return "", fmt.Errorf("no Location header in GCS response")
+	}
+
+	log.Printf("video: resumable upload URL created for %s", gcsPath)
+	return uploadURL, nil
 }
 
 // ── POST /api/v1/videos/{id}/transcode ───────────────────────────────────────
@@ -247,19 +234,12 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 	inputURI := fmt.Sprintf("gs://%s/%s", h.bucket, inputGCSPath)
 	outputURI := fmt.Sprintf("gs://%s/hls/%s/", h.bucket, videoID)
 	hlsURL := fmt.Sprintf("%s/hls/%s/index.m3u8", h.cdnBase, videoID)
-	submitURL := fmt.Sprintf("https://transcoder.googleapis.com/v1/projects/%s/locations/%s/jobs",
+	submitURL := fmt.Sprintf(
+		"https://transcoder.googleapis.com/v1/projects/%s/locations/%s/jobs",
 		projectID, location)
 
-	// Verify input file exists in GCS before submitting job
-	_, err := h.gcs.Bucket(h.bucket).Object(inputGCSPath).Attrs(ctx)
-	if err != nil {
-		log.Printf("video: input file not found in GCS videoId=%s path=%s: %v",
-			videoID, inputGCSPath, err)
-		h.markFailed(videoID)
-		return
-	}
-	log.Printf("video: input file verified in GCS videoId=%s path=%s", videoID, inputGCSPath)
-
+	// FIX: Check file exists in GCS using authenticated HTTP request
+	// (not the GCS Go client which may have credential issues)
 	authToken, err := getAuthToken(ctx)
 	if err != nil {
 		log.Printf("video: auth token failed videoId=%s: %v", videoID, err)
@@ -267,21 +247,47 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 		return
 	}
 
+	// Verify file exists via GCS JSON API
+	checkURL := fmt.Sprintf("https://storage.googleapis.com/storage/v1/b/%s/o/%s",
+		h.bucket, strings.ReplaceAll(inputGCSPath, "/", "%2F"))
+	checkReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, checkURL, nil)
+	checkReq.Header.Set("Authorization", "Bearer "+authToken)
+	checkResp, err := (&http.Client{Timeout: 10 * time.Second}).Do(checkReq)
+	if err != nil || checkResp.StatusCode == 404 {
+		log.Printf("video: input file NOT found in GCS videoId=%s path=%s status=%v",
+			videoID, inputGCSPath, checkResp)
+		h.markFailed(videoID)
+		return
+	}
+	checkResp.Body.Close()
+	log.Printf("video: ✅ input file verified in GCS videoId=%s", videoID)
+
+	// Submit transcoder job
 	jobPayload := map[string]any{
 		"inputUri": inputURI, "outputUri": outputURI,
 		"elementaryStreams": []map[string]any{
-			{"key": "video-720p", "videoStream": map[string]any{"h264": map[string]any{"heightPixels": 720, "widthPixels": 1280, "bitrateBps": 1500000, "frameRate": 30}}},
-			{"key": "video-480p", "videoStream": map[string]any{"h264": map[string]any{"heightPixels": 480, "widthPixels": 854, "bitrateBps": 800000, "frameRate": 30}}},
-			{"key": "video-360p", "videoStream": map[string]any{"h264": map[string]any{"heightPixels": 360, "widthPixels": 640, "bitrateBps": 400000, "frameRate": 30}}},
+			{"key": "video-720p", "videoStream": map[string]any{"h264": map[string]any{
+				"heightPixels": 720, "widthPixels": 1280, "bitrateBps": 1500000, "frameRate": 30}}},
+			{"key": "video-480p", "videoStream": map[string]any{"h264": map[string]any{
+				"heightPixels": 480, "widthPixels": 854, "bitrateBps": 800000, "frameRate": 30}}},
+			{"key": "video-360p", "videoStream": map[string]any{"h264": map[string]any{
+				"heightPixels": 360, "widthPixels": 640, "bitrateBps": 400000, "frameRate": 30}}},
 			{"key": "audio", "audioStream": map[string]any{"codec": "aac", "bitrateBps": 128000}},
 		},
 		"muxStreams": []map[string]any{
-			{"key": "hls-720p", "container": "ts", "elementaryStreams": []string{"video-720p", "audio"}, "segmentSettings": map[string]any{"segmentDuration": "6s"}},
-			{"key": "hls-480p", "container": "ts", "elementaryStreams": []string{"video-480p", "audio"}, "segmentSettings": map[string]any{"segmentDuration": "6s"}},
-			{"key": "hls-360p", "container": "ts", "elementaryStreams": []string{"video-360p", "audio"}, "segmentSettings": map[string]any{"segmentDuration": "6s"}},
+			{"key": "hls-720p", "container": "ts",
+				"elementaryStreams": []string{"video-720p", "audio"},
+				"segmentSettings":   map[string]any{"segmentDuration": "6s"}},
+			{"key": "hls-480p", "container": "ts",
+				"elementaryStreams": []string{"video-480p", "audio"},
+				"segmentSettings":   map[string]any{"segmentDuration": "6s"}},
+			{"key": "hls-360p", "container": "ts",
+				"elementaryStreams": []string{"video-360p", "audio"},
+				"segmentSettings":   map[string]any{"segmentDuration": "6s"}},
 		},
 		"manifests": []map[string]any{
-			{"fileName": "index.m3u8", "type": "HLS", "muxStreams": []string{"hls-720p", "hls-480p", "hls-360p"}},
+			{"fileName": "index.m3u8", "type": "HLS",
+				"muxStreams": []string{"hls-720p", "hls-480p", "hls-360p"}},
 		},
 	}
 
@@ -307,7 +313,8 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 
 	if resp.StatusCode >= 400 {
 		errBody, _ := io.ReadAll(resp.Body)
-		log.Printf("video: API error %d videoId=%s: %s", resp.StatusCode, videoID, string(errBody))
+		log.Printf("video: transcode API error %d videoId=%s: %s",
+			resp.StatusCode, videoID, string(errBody))
 		h.markFailed(videoID)
 		return
 	}
@@ -316,29 +323,33 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 	json.NewDecoder(resp.Body).Decode(&jobResp)
 	jobName, _ := jobResp["name"].(string)
 	if jobName == "" {
-		log.Printf("video: no job name videoId=%s", videoID)
+		log.Printf("video: no job name videoId=%s resp=%v", videoID, jobResp)
 		h.markFailed(videoID)
 		return
 	}
 
 	jobURL := fmt.Sprintf("https://transcoder.googleapis.com/v1/%s", jobName)
-	log.Printf("video: job started videoId=%s job=%s", videoID, jobName)
+	log.Printf("video: transcoding job started videoId=%s job=%s", videoID, jobName)
 
+	// Poll job status
 	for i := 0; i < 90; i++ {
 		time.Sleep(10 * time.Second)
+
 		pollToken, err := getAuthToken(ctx)
 		if err != nil {
+			log.Printf("video: poll token failed i=%d: %v", i, err)
 			continue
 		}
-		checkReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, jobURL, nil)
-		checkReq.Header.Set("Authorization", "Bearer "+pollToken)
-		checkResp, err := client.Do(checkReq)
+		pollReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, jobURL, nil)
+		pollReq.Header.Set("Authorization", "Bearer "+pollToken)
+		pollResp, err := client.Do(pollReq)
 		if err != nil {
+			log.Printf("video: poll request failed i=%d: %v", i, err)
 			continue
 		}
 		var result map[string]any
-		json.NewDecoder(checkResp.Body).Decode(&result)
-		checkResp.Body.Close()
+		json.NewDecoder(pollResp.Body).Decode(&result)
+		pollResp.Body.Close()
 
 		state, _ := result["state"].(string)
 		log.Printf("video: state=%s videoId=%s poll=%d", state, videoID, i+1)
@@ -349,15 +360,17 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 				{Path: "hlsUrl", Value: hlsURL},
 				{Path: "updatedAt", Value: time.Now().UTC()},
 			})
-			log.Printf("video: ✅ done videoId=%s hlsUrl=%s", videoID, hlsURL)
+			log.Printf("video: ✅ transcoding complete videoId=%s", videoID)
 
+			// Update linked stream if any
 			snap, _ := h.fs.Collection("videos").Doc(videoID).Get(ctx)
 			var v Video
 			if snap != nil {
 				snap.DataTo(&v)
 				if v.StreamID != "" {
 					h.fs.Collection("streams").Doc(v.StreamID).Update(ctx, []firestore.Update{
-						{Path: "hlsUrl", Value: hlsURL}, {Path: "updatedAt", Value: time.Now().UTC()},
+						{Path: "hlsUrl", Value: hlsURL},
+						{Path: "updatedAt", Value: time.Now().UTC()},
 					})
 				}
 			}
@@ -366,13 +379,17 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 				"hlsUrl": hlsURL, "timestamp": time.Now().UTC().Format(time.RFC3339),
 			})
 			return
+
 		} else if state == "FAILED" {
-			log.Printf("video: ❌ failed videoId=%s", videoID)
+			// Log full error details
+			errDetail, _ := json.Marshal(result["error"])
+			log.Printf("video: ❌ transcoding FAILED videoId=%s error=%s", videoID, string(errDetail))
 			h.markFailed(videoID)
 			return
 		}
 	}
-	log.Printf("video: timed out videoId=%s", videoID)
+
+	log.Printf("video: transcoding timed out videoId=%s", videoID)
 	h.markFailed(videoID)
 }
 
@@ -386,7 +403,8 @@ func (h *handler) markFailed(videoID string) {
 
 func (h *handler) listVideos(w http.ResponseWriter, r *http.Request) {
 	docs, err := h.fs.Collection("videos").
-		Where("status", "==", "ready").OrderBy("createdAt", firestore.Desc).
+		Where("status", "==", "ready").
+		OrderBy("createdAt", firestore.Desc).
 		Limit(50).Documents(r.Context()).GetAll()
 	if err != nil {
 		jsonError(w, "failed to fetch videos", http.StatusInternalServerError)
@@ -438,7 +456,9 @@ func (h *handler) getManifest(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, fmt.Sprintf("video not ready — status: %s", v.Status), http.StatusAccepted)
 		return
 	}
-	jsonOK(w, map[string]string{"videoId": videoID, "manifestUrl": v.HLSUrl, "status": v.Status})
+	jsonOK(w, map[string]string{
+		"videoId": videoID, "manifestUrl": v.HLSUrl, "status": v.Status,
+	})
 }
 
 func (h *handler) deleteVideo(w http.ResponseWriter, r *http.Request) {
@@ -460,7 +480,8 @@ func (h *handler) deleteVideo(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		ctx := context.Background()
 		h.gcs.Bucket(h.bucket).Object(v.RawGCSPath).Delete(ctx)
-		it := h.gcs.Bucket(h.bucket).Objects(ctx, &storage.Query{Prefix: fmt.Sprintf("hls/%s/", videoID)})
+		it := h.gcs.Bucket(h.bucket).Objects(ctx,
+			&storage.Query{Prefix: fmt.Sprintf("hls/%s/", videoID)})
 		for {
 			attrs, err := it.Next()
 			if err != nil {
@@ -513,15 +534,7 @@ func main() {
 	}
 	defer gcs.Close()
 
-	// Get service account email for signed URLs
-	saEmail := getServiceAccountEmail(ctx)
-	if saEmail == "" {
-		saEmail = util.Getenv("SERVICE_ACCOUNT_EMAIL",
-			"firebase-adminsdk-fbsvc@sports-stream-66553.iam.gserviceaccount.com")
-	}
-	log.Printf("video: using SA email for signing: %s", saEmail)
-
-	h := &handler{fs: fs, gcs: gcs, bucket: bucket, cdnBase: cdnBase, saEmail: saEmail}
+	h := &handler{fs: fs, gcs: gcs, bucket: bucket, cdnBase: cdnBase}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
