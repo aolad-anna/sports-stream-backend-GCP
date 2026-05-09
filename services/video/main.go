@@ -291,7 +291,7 @@ func (h *handler) runTranscoder(videoID, inputGCSPath string) {
 		},
 	}
 
-	bodyBytes, _ := json.Marshal(map[string]any{"job": jobPayload})
+	bodyBytes, _ := json.Marshal(jobPayload)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, submitURL,
 		strings.NewReader(string(bodyBytes)))
 	if err != nil {

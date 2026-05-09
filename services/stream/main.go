@@ -313,7 +313,7 @@ func startTranscoder(streamID, inputURI string, fs *firestore.Client) {
 		},
 	}
 
-	body, _ := json.Marshal(map[string]any{"job": jobPayload})
+	body, _ := json.Marshal(jobPayload)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, submitURL, bytes.NewReader(body))
 	if err != nil {
 		log.Printf("transcoder: request build failed streamId=%s: %v", streamID, err)

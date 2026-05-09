@@ -4,11 +4,8 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="fix issue transcode">
+    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="fix issue transcode 2">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cmd/transcode/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/cmd/transcode/main.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/public/upload.html" beforeDir="false" afterPath="$PROJECT_DIR$/public/upload.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/video/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/services/video/main.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -240,7 +237,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="html page" />
     <MESSAGE value="changes" />
     <MESSAGE value="fix Procfile" />
     <MESSAGE value="config" />
@@ -265,7 +261,8 @@
     <MESSAGE value="feat: add video upload web interface" />
     <MESSAGE value="fix issue" />
     <MESSAGE value="fix issue transcode" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix issue transcode" />
+    <MESSAGE value="fix issue transcode 2" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix issue transcode 2" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
