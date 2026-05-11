@@ -4,10 +4,9 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="FFmpeg HLS - upload then transcode, get HLS URL">
-      <change afterPath="$PROJECT_DIR$/public/dashboard.html" afterDir="false" />
+    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="fix: health 200 + dashboard route">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/public/upload.html" beforeDir="false" afterPath="$PROJECT_DIR$/public/upload.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cmd/reset-viewers/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/cmd/reset-viewers/main.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -98,6 +97,10 @@
         <entry key="GoApplicationRunConfiguration">
           <value>
             <map>
+              <entry key="go build sports-stream-backend/services/analytics" value="STOPPED" />
+              <entry key="go build sports-stream-backend/services/notification" value="STOPPED" />
+              <entry key="go build sports-stream-backend/services/stream" value="STOPPED" />
+              <entry key="go build sports-stream-backend/services/user" value="STOPPED" />
               <entry key="go build sports-stream-backend/services/video" value="STOPPED" />
             </map>
           </value>
@@ -239,7 +242,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fix some issues" />
     <MESSAGE value="view issue fixed" />
     <MESSAGE value="firebase issue" />
     <MESSAGE value="chng" />
@@ -264,7 +266,8 @@
     <MESSAGE value="OBS" />
     <MESSAGE value="upload video flow." />
     <MESSAGE value="FFmpeg HLS - upload then transcode, get HLS URL" />
-    <option name="LAST_COMMIT_MESSAGE" value="FFmpeg HLS - upload then transcode, get HLS URL" />
+    <MESSAGE value="fix: health 200 + dashboard route" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: health 200 + dashboard route" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
