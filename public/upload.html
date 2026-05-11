@@ -27,7 +27,6 @@
         .page-title { font-family:var(--display); font-size:56px; letter-spacing:4px; line-height:1; margin-bottom:8px; background:linear-gradient(135deg,var(--text) 0%,var(--accent) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
         .page-sub { color:var(--muted); font-size:14px; margin-bottom:40px; font-family:var(--mono); letter-spacing:1px; }
 
-        /* Steps — 3 steps only now */
         .steps { display:flex; align-items:center; margin-bottom:40px; }
         .step { display:flex; align-items:center; gap:10px; flex:1; }
         .step-num { width:32px; height:32px; border-radius:50%; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:12px; color:var(--muted); flex-shrink:0; transition:all .3s; }
@@ -79,8 +78,9 @@
         .progress-label { display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:8px; }
         .progress-bar { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
         .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:3px; width:0%; transition:width .3s; }
+        @keyframes indeterminate { 0%{width:0%;margin-left:0%} 50%{width:60%;margin-left:20%} 100%{width:0%;margin-left:100%} }
 
-        .log { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:20px; font-family:var(--mono); font-size:12px; max-height:160px; overflow-y:auto; display:none; }
+        .log { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:20px; font-family:var(--mono); font-size:12px; max-height:180px; overflow-y:auto; display:none; }
         .log.visible { display:block; }
         .log-line { display:flex; gap:12px; padding:4px 0; border-bottom:1px solid var(--border); color:var(--muted); }
         .log-line:last-child { border-bottom:none; }
@@ -108,7 +108,6 @@
         @keyframes spin { to{transform:rotate(360deg)} }
         .two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
 
-        /* Video preview */
         .video-preview { width:100%; aspect-ratio:16/9; background:#000; border-radius:10px; overflow:hidden; margin-top:16px; display:none; }
         .video-preview.visible { display:block; }
         .video-preview video { width:100%; height:100%; }
@@ -127,16 +126,13 @@
                 <div class="logo-sub">Video Upload Portal</div>
             </div>
         </div>
-        <div class="status-pill">
-            <span class="status-dot"></span>
-            <span id="statusText">connecting...</span>
-        </div>
+        <div class="status-pill"><span class="status-dot"></span><span id="statusText">connecting...</span></div>
     </header>
 
     <div class="page-title">UPLOAD VIDEO</div>
-    <div class="page-sub">// upload to GCS · instant playback URL · no transcoding</div>
+    <div class="page-sub">// upload to GCS → FFmpeg HLS transcode → ready for ExoPlayer</div>
 
-    <!-- Steps: 3 only -->
+    <!-- 5 steps -->
     <div class="steps">
         <div class="step active" id="step1"><div class="step-num">01</div><div class="step-label">Sign In</div></div>
         <div class="step-line"></div>
@@ -144,12 +140,13 @@
         <div class="step-line"></div>
         <div class="step" id="step3"><div class="step-num">03</div><div class="step-label">Upload</div></div>
         <div class="step-line"></div>
-        <div class="step" id="step4"><div class="step-num">04</div><div class="step-label">Ready</div></div>
+        <div class="step" id="step4"><div class="step-num">04</div><div class="step-label">Transcode</div></div>
+        <div class="step-line"></div>
+        <div class="step" id="step5"><div class="step-num">05</div><div class="step-label">Ready</div></div>
     </div>
 
     <div class="user-bar" id="userBar">
-        <span>✓</span>
-        <span id="userEmail">—</span>
+        <span>✓</span><span id="userEmail">—</span>
         <span class="role-badge" id="userRole">viewer</span>
         <span style="flex:1"></span>
         <button class="btn-outline btn" onclick="signOut()" style="padding:4px 12px;font-size:11px">Sign Out</button>
@@ -183,14 +180,12 @@
         <div class="section-title">SELECT VIDEO</div>
         <div class="section-desc">// mp4 recommended · uploads directly to GCS</div>
         <div class="alert" id="uploadAlert"></div>
-
         <div class="dropzone" id="dropzone">
             <input type="file" id="fileInput" accept="video/mp4,video/*" onchange="fileSelected(this)" />
             <span class="drop-icon">📹</span>
             <div class="drop-title">DROP VIDEO HERE</div>
             <div class="drop-sub">or click to browse · MP4 recommended</div>
         </div>
-
         <div class="file-selected" id="fileInfo">
             <span style="font-size:24px">🎬</span>
             <div style="flex:1">
@@ -199,7 +194,6 @@
             </div>
             <button class="copy-btn" onclick="clearFile()">✕ Remove</button>
         </div>
-
         <div class="progress-wrap" id="uploadProgress">
             <div class="progress-label">
                 <span id="uploadStatus">Uploading...</span>
@@ -207,59 +201,65 @@
             </div>
             <div class="progress-bar"><div class="progress-fill" id="uploadFill"></div></div>
         </div>
-
         <div class="log" id="uploadLog"></div>
-
-        <!-- Result card — shown immediately after upload, no transcoding wait -->
-        <div class="result-card" id="resultCard">
-            <div class="result-title">✓ VIDEO UPLOADED</div>
-            <div class="result-field">
-                <span class="result-key">Video ID</span>
-                <span class="result-val" id="resVideoId">—</span>
-                <button class="copy-btn" onclick="copyVal('resVideoId', this)">Copy</button>
-            </div>
-            <div class="result-field">
-                <span class="result-key">Video URL</span>
-                <span class="result-val" id="resVideoUrl">—</span>
-                <button class="copy-btn" onclick="copyVal('resVideoUrl', this)">Copy</button>
-            </div>
-            <div class="result-field">
-                <span class="result-key">GCS Path</span>
-                <span class="result-val" id="resGcsPath">—</span>
-                <button class="copy-btn" onclick="copyVal('resGcsPath', this)">Copy</button>
-            </div>
-
-            <!-- Inline video preview -->
-            <div class="video-preview" id="videoPreview">
-                <video id="previewPlayer" controls></video>
-            </div>
-
-            <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
-                <button class="btn btn-primary" onclick="previewVideo()">▶ PREVIEW</button>
-                <button class="btn btn-outline" onclick="uploadAnother()">+ UPLOAD ANOTHER</button>
-            </div>
-        </div>
-
         <div style="margin-top:20px;display:flex;gap:12px" id="uploadBtns">
             <button class="btn btn-outline" onclick="goBack()">← Back</button>
             <button class="btn btn-primary" onclick="startUpload()" id="btnUpload" disabled>UPLOAD →</button>
         </div>
     </div>
 
-</div>
+    <!-- SECTION 4: Transcoding -->
+    <div class="section" id="secTranscode">
+        <div class="section-title">TRANSCODING</div>
+        <div class="section-desc">// FFmpeg converting to HLS — 720p inside Docker container</div>
+        <div class="progress-wrap visible">
+            <div class="progress-label">
+                <span id="transcodeStatus">Starting FFmpeg...</span>
+                <span id="transcodePct">—</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="transcodeFill" style="animation:indeterminate 2s infinite"></div>
+            </div>
+        </div>
+        <div class="log visible" id="transcodeLog"></div>
 
+        <!-- Result shown here after transcoding -->
+        <div class="result-card" id="resultCard">
+            <div class="result-title">✓ HLS READY</div>
+            <div class="result-field">
+                <span class="result-key">Video ID</span>
+                <span class="result-val" id="resVideoId">—</span>
+                <button class="copy-btn" onclick="copyVal('resVideoId',this)">Copy</button>
+            </div>
+            <div class="result-field">
+                <span class="result-key">HLS URL</span>
+                <span class="result-val" id="resHlsUrl">—</span>
+                <button class="copy-btn" onclick="copyVal('resHlsUrl',this)">Copy</button>
+            </div>
+            <div class="result-field">
+                <span class="result-key">ExoPlayer</span>
+                <span class="result-val" style="color:var(--green)">✓ Paste HLS URL directly into ExoPlayer</span>
+            </div>
+            <div class="video-preview" id="videoPreview">
+                <video id="previewPlayer" controls></video>
+            </div>
+            <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
+                <button class="btn btn-primary" onclick="previewVideo()">▶ PREVIEW IN BROWSER</button>
+                <button class="btn btn-outline" onclick="uploadAnother()">+ UPLOAD ANOTHER</button>
+            </div>
+        </div>
+    </div>
+
+</div>
 <script>
-    const API        = window.location.origin;
+    const API          = window.location.origin;
     const FIREBASE_KEY = 'AIzaSyBZq6FQWa81-B4PPFqLA-Wh6orSi9xHws4';
 
     let token   = localStorage.getItem('ss_token') || '';
     let videoId = '';
-    let videoUrl = '';
+    let hlsUrl  = '';
 
-    window.onload = async () => {
-        checkStatus();
-        if (token) await loadUser();
-    };
+    window.onload = async () => { checkStatus(); if (token) await loadUser(); };
 
     async function checkStatus() {
         try {
@@ -280,18 +280,15 @@
             badge.textContent = user.role;
             badge.className = `role-badge ${user.role !== 'broadcaster' && user.role !== 'admin' ? 'viewer' : ''}`;
             document.getElementById('userBar').classList.add('visible');
-            if (user.role === 'broadcaster' || user.role === 'admin') {
-                showSection('secDetails'); setStep(2);
-            } else {
-                showAlert('authAlert', `Role "${user.role}" cannot upload. Ask admin to set role=broadcaster in Firestore.`, 'error');
-            }
+            if (user.role === 'broadcaster' || user.role === 'admin') { showSection('secDetails'); setStep(2); }
+            else showAlert('authAlert', `Role "${user.role}" cannot upload. Ask admin to set broadcaster role.`, 'error');
         } catch { token=''; localStorage.removeItem('ss_token'); }
     }
 
     async function signIn() {
         const email = document.getElementById('email').value.trim();
         const pass  = document.getElementById('password').value;
-        if (!email || !pass) { showAlert('authAlert', 'Email and password required', 'error'); return; }
+        if (!email || !pass) { showAlert('authAlert','Email and password required','error'); return; }
         const btn = document.getElementById('btnSignIn');
         btn.innerHTML = '<span class="spinner"></span> Signing in...'; btn.disabled = true;
         try {
@@ -315,41 +312,31 @@
     }
 
     function goToUpload() {
-        const title = document.getElementById('videoTitle').value.trim();
-        if (!title) { showAlert('detailsAlert','Title is required','error'); return; }
-        hideAlert('detailsAlert');
-        showSection('secUpload'); setStep(3);
+        if (!document.getElementById('videoTitle').value.trim()) { showAlert('detailsAlert','Title is required','error'); return; }
+        hideAlert('detailsAlert'); showSection('secUpload'); setStep(3);
     }
-
     function goBack() { showSection('secDetails'); setStep(2); }
 
     function fileSelected(input) {
-        const file = input.files[0];
-        if (!file) return;
+        const file = input.files[0]; if (!file) return;
         document.getElementById('fileName').textContent = file.name;
         document.getElementById('fileSize').textContent = formatBytes(file.size);
         document.getElementById('fileInfo').classList.add('visible');
         document.getElementById('btnUpload').disabled = false;
     }
-
     function clearFile() {
         document.getElementById('fileInput').value = '';
         document.getElementById('fileInfo').classList.remove('visible');
         document.getElementById('btnUpload').disabled = true;
     }
 
-    // Drag & drop
     const dz = document.getElementById('dropzone');
     dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
     dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
     dz.addEventListener('drop', e => {
         e.preventDefault(); dz.classList.remove('drag-over');
         const file = e.dataTransfer.files[0];
-        if (file) {
-            const dt = new DataTransfer(); dt.items.add(file);
-            document.getElementById('fileInput').files = dt.files;
-            fileSelected(document.getElementById('fileInput'));
-        }
+        if (file) { const dt = new DataTransfer(); dt.items.add(file); document.getElementById('fileInput').files = dt.files; fileSelected(document.getElementById('fileInput')); }
     });
 
     async function startUpload() {
@@ -365,9 +352,9 @@
         document.getElementById('uploadLog').classList.add('visible');
 
         try {
-            // Step 1: Get upload URL
+            // Step 1 — Get upload URL
             addLog('uploadLog', 'Requesting GCS upload URL...', 'info');
-            setProgress(5); setLabel('uploadStatus', 'Getting upload URL...');
+            setUploadProgress(5); setLabel('uploadStatus', 'Getting upload URL...');
 
             const body = { title, description: desc };
             if (streamId) body.streamId = streamId;
@@ -380,40 +367,23 @@
             if (!r1.ok) { const e = await r1.json(); throw new Error(e.message || 'Failed to get upload URL'); }
 
             const { data } = await r1.json();
-            videoId  = data.videoId;
-            videoUrl = data.videoUrl;
-
+            videoId = data.videoId;
             addLog('uploadLog', `Video ID: ${videoId}`, 'success');
-            addLog('uploadLog', `Video URL ready: ${videoUrl}`, 'success');
-            setProgress(10);
+            addLog('uploadLog', 'Upload URL received', 'success');
+            setUploadProgress(10);
 
-            // Step 2: Upload file to GCS
+            // Step 2 — Upload to GCS
             addLog('uploadLog', `Uploading ${formatBytes(file.size)} to GCS...`, 'info');
-            setLabel('uploadStatus', 'Uploading...');
-
+            setLabel('uploadStatus', 'Uploading to GCS...');
             await uploadToGCS(data.uploadUrl, file);
 
-            addLog('uploadLog', '✅ Upload complete!', 'success');
-            setProgress(90);
-            setLabel('uploadStatus', 'Confirming...');
-
-            // Step 3: Confirm with backend
-            const r2 = await fetch(`${API}/api/v1/videos/${videoId}/confirm`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (r2.ok) {
-                const c = await r2.json();
-                addLog('uploadLog', `File size: ${formatBytes(c.data?.size || 0)}`, 'success');
-            }
-
-            setProgress(100);
-            setLabel('uploadStatus', '✓ Done');
+            addLog('uploadLog', '✅ Upload to GCS complete!', 'success');
+            setUploadProgress(100);
+            setLabel('uploadStatus', '✓ Upload complete');
             setLabel('uploadPct', '100%');
 
-            // Show result immediately — no transcoding
-            showResult(videoId, videoUrl, data.gcsPath);
+            // Step 3 — Start FFmpeg transcoding
+            setTimeout(() => startTranscode(), 800);
 
         } catch(e) {
             showAlert('uploadAlert', e.message, 'error');
@@ -428,81 +398,152 @@
             const xhr = new XMLHttpRequest();
             xhr.open('PUT', url);
             xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
-
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
-                    const pct = Math.round(10 + (e.loaded / e.total) * 80);
-                    setProgress(pct);
+                    const pct = Math.round(10 + (e.loaded / e.total) * 85);
+                    setUploadProgress(pct);
                     setLabel('uploadPct', `${Math.round((e.loaded / e.total) * 100)}%`);
                 }
             };
-
             xhr.onload = () => {
                 if (xhr.status >= 200 && xhr.status < 300) resolve();
-                else reject(new Error(`GCS upload failed: HTTP ${xhr.status} — check CORS settings`));
+                else reject(new Error(`GCS upload failed: HTTP ${xhr.status}`));
             };
             xhr.onerror = () => reject(new Error('Network error during upload'));
             xhr.send(file);
         });
     }
 
-    function showResult(id, url, path) {
-        setStep(4);
-        document.getElementById('resVideoId').textContent  = id;
-        document.getElementById('resVideoUrl').textContent = url;
-        document.getElementById('resGcsPath').textContent  = path;
+    // ── Transcode ─────────────────────────────────────────────────────────────────
+
+    async function startTranscode() {
+        showSection('secTranscode'); setStep(4);
+        addLog('transcodeLog', `Starting FFmpeg for ${videoId}...`, 'info');
+        addLog('transcodeLog', 'Converting MP4 → HLS 720p segments...', 'info');
+
+        try {
+            const r = await fetch(`${API}/api/v1/videos/${videoId}/transcode`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!r.ok) { const e = await r.json(); throw new Error(e.message || 'Transcode failed'); }
+            const { data } = await r.json();
+            addLog('transcodeLog', data.message || 'FFmpeg running...', 'info');
+            addLog('transcodeLog', 'Polling every 15s for completion...', 'info');
+            pollVideoStatus();
+        } catch(e) {
+            addLog('transcodeLog', `Error: ${e.message}`, 'error');
+            document.getElementById('transcodeStatus').textContent = '✕ Failed to start';
+        }
+    }
+
+    async function pollVideoStatus() {
+        let attempts = 0;
+        const maxAttempts = 40; // 10 min max
+
+        const poll = async () => {
+            attempts++;
+            addLog('transcodeLog', `Check ${attempts}/${maxAttempts} — polling status...`, 'info');
+
+            try {
+                const r = await fetch(`${API}/api/v1/videos/${videoId}`);
+                const { data } = await r.json();
+
+                document.getElementById('transcodeStatus').textContent = `FFmpeg: ${data.status} (check ${attempts})`;
+
+                if (data.status === 'ready') {
+                    hlsUrl = data.hlsUrl;
+                    onTranscodeComplete(data);
+                    return;
+                }
+
+                if (data.status === 'failed') {
+                    addLog('transcodeLog', '✕ FFmpeg transcoding failed — check Cloud Run logs', 'error');
+                    document.getElementById('transcodeStatus').textContent = '✕ Transcoding failed';
+                    document.getElementById('transcodeFill').style.animation = 'none';
+                    document.getElementById('transcodeFill').style.background = 'var(--red)';
+                    document.getElementById('transcodeFill').style.width = '100%';
+                    return;
+                }
+
+                // Still transcoding
+                if (attempts < maxAttempts) setTimeout(poll, 15000);
+                else addLog('transcodeLog', 'Timed out — check Firestore for status', 'error');
+
+            } catch(e) {
+                addLog('transcodeLog', `Poll error: ${e.message}`, 'error');
+                if (attempts < maxAttempts) setTimeout(poll, 15000);
+            }
+        };
+
+        setTimeout(poll, 15000); // First check after 15s
+    }
+
+    function onTranscodeComplete(video) {
+        addLog('transcodeLog', '✅ HLS transcoding complete!', 'success');
+        setStep(5);
+
+        // Stop indeterminate animation
+        const fill = document.getElementById('transcodeFill');
+        fill.style.animation = 'none';
+        fill.style.width = '100%';
+        fill.style.background = 'var(--green)';
+        document.getElementById('transcodeStatus').textContent = '✓ Ready';
+        document.getElementById('transcodePct').textContent = '100%';
+
+        // Show result
+        document.getElementById('resVideoId').textContent = video.id;
+        document.getElementById('resHlsUrl').textContent  = video.hlsUrl;
         document.getElementById('resultCard').classList.add('visible');
-        document.getElementById('uploadBtns').style.display = 'none';
     }
 
     function previewVideo() {
+        if (!hlsUrl) return;
         const preview = document.getElementById('videoPreview');
         const player  = document.getElementById('previewPlayer');
         preview.classList.add('visible');
-        player.src = videoUrl;
+        player.src = hlsUrl;
         player.play();
     }
 
     function uploadAnother() {
-        videoId=''; videoUrl='';
+        videoId=''; hlsUrl='';
         document.getElementById('resultCard').classList.remove('visible');
         document.getElementById('videoPreview').classList.remove('visible');
         document.getElementById('previewPlayer').src = '';
+        document.getElementById('transcodeLog').innerHTML = '';
         document.getElementById('uploadLog').innerHTML = '';
         document.getElementById('fileInput').value = '';
         document.getElementById('fileInfo').classList.remove('visible');
         document.getElementById('btnUpload').disabled = true;
         document.getElementById('uploadProgress').classList.remove('visible');
-        document.getElementById('uploadBtns').style.display = 'flex';
         document.getElementById('uploadBtns').style.opacity = '1';
         document.getElementById('videoTitle').value = '';
         document.getElementById('videoDesc').value  = '';
         document.getElementById('streamId').value   = '';
+        // Reset transcode fill
+        const fill = document.getElementById('transcodeFill');
+        fill.style.animation = 'indeterminate 2s infinite';
+        fill.style.width = '';
+        fill.style.background = '';
         showSection('secDetails'); setStep(2);
     }
 
-    // Helpers
+    // ── Helpers ───────────────────────────────────────────────────────────────────
     function showSection(id) {
         document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
         document.getElementById(id).classList.add('visible');
     }
-
     function setStep(n) {
-        for (let i=1; i<=4; i++) {
+        for (let i=1; i<=5; i++) {
             const el = document.getElementById(`step${i}`);
             el.classList.remove('active','done');
             if (i < n) el.classList.add('done');
             if (i === n) el.classList.add('active');
         }
     }
-
-    function showAlert(id, msg, type) {
-        const el = document.getElementById(id);
-        el.textContent = msg; el.className = `alert ${type} visible`;
-    }
-
-    function hideAlert(id) { document.getElementById(id).className = 'alert'; }
-
+    function showAlert(id, msg, type) { const el=document.getElementById(id); el.textContent=msg; el.className=`alert ${type} visible`; }
+    function hideAlert(id) { document.getElementById(id).className='alert'; }
     function addLog(id, msg, type='') {
         const log = document.getElementById(id);
         const line = document.createElement('div');
@@ -510,19 +551,16 @@
         line.innerHTML = `<span class="log-time">${new Date().toLocaleTimeString()}</span><span>${msg}</span>`;
         log.appendChild(line); log.scrollTop = log.scrollHeight;
     }
-
-    function setProgress(pct) { document.getElementById('uploadFill').style.width = pct + '%'; }
+    function setUploadProgress(pct) { document.getElementById('uploadFill').style.width = pct+'%'; }
     function setLabel(id, text) { document.getElementById(id).textContent = text; }
-
     function copyVal(id, btn) {
         navigator.clipboard.writeText(document.getElementById(id).textContent);
-        if (btn) { btn.textContent = '✓ Copied'; btn.classList.add('copied'); setTimeout(()=>{ btn.textContent='Copy'; btn.classList.remove('copied'); }, 2000); }
+        if (btn) { btn.textContent='✓ Copied'; btn.classList.add('copied'); setTimeout(()=>{ btn.textContent='Copy'; btn.classList.remove('copied'); },2000); }
     }
-
     function formatBytes(n) {
-        if (n < 1024) return n+' B';
-        if (n < 1048576) return (n/1024).toFixed(1)+' KB';
-        if (n < 1073741824) return (n/1048576).toFixed(1)+' MB';
+        if (n<1024) return n+' B';
+        if (n<1048576) return (n/1024).toFixed(1)+' KB';
+        if (n<1073741824) return (n/1048576).toFixed(1)+' MB';
         return (n/1073741824).toFixed(2)+' GB';
     }
 </script>
