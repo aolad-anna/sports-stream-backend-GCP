@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="upload video flow.">
+    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="FFmpeg HLS - upload then transcode, get HLS URL">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -237,7 +237,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="config" />
     <MESSAGE value="fix some issues" />
     <MESSAGE value="view issue fixed" />
     <MESSAGE value="firebase issue" />
@@ -262,7 +261,8 @@
     <MESSAGE value="fix issue transcode 2" />
     <MESSAGE value="OBS" />
     <MESSAGE value="upload video flow." />
-    <option name="LAST_COMMIT_MESSAGE" value="upload video flow." />
+    <MESSAGE value="FFmpeg HLS - upload then transcode, get HLS URL" />
+    <option name="LAST_COMMIT_MESSAGE" value="FFmpeg HLS - upload then transcode, get HLS URL" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
