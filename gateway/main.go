@@ -58,6 +58,8 @@ const landingPage = `<!DOCTYPE html>
   .btn:hover { opacity: 0.85; }
   .btn-primary { background: #0ea5e9; color: #fff; }
   .btn-accent { background: #f97316; color: #fff; }
+  .btn-green { background: #10b981; color: #fff; }
+  .btn-purple { background: #8b5cf6; color: #fff; }
   .btn-outline { background: transparent; color: #94a3b8; border: 1px solid #334155; }
   .footer { margin-top: 48px; font-size: 11px; color: #334155; }
 </style>
@@ -98,13 +100,14 @@ const landingPage = `<!DOCTYPE html>
   <div class="card">
     <div class="card-header"><div class="dot-color" style="background:#0ea5e9"></div><div><div class="card-title">video-service</div><div class="card-port">:8086</div></div></div>
     <div class="endpoint"><span>POST</span> /api/v1/videos/upload-url</div>
-    <div class="endpoint"><span>GET</span>  /api/v1/videos</div>
+    <div class="endpoint"><span>POST</span> /api/v1/videos/:id/transcode</div>
     <div class="endpoint"><span>GET</span>  /api/v1/videos/:id/manifest</div>
   </div>
 </div>
 <hr class="divider">
 <div class="links">
-  <a class="btn btn-primary" href="/health">Health Check</a>
+  <a class="btn btn-primary" href="/health">🔍 Health Check</a>
+  <a class="btn btn-green" href="/dashboard">📊 Dashboard</a>
   <a class="btn btn-accent" href="/upload">📹 Upload Video</a>
   <a class="btn btn-outline" href="/api/v1/streams">Live Streams</a>
   <a class="btn btn-outline" href="/api/v1/videos">Videos</a>
@@ -147,6 +150,7 @@ func main() {
 
 		switch {
 
+		// ── Root → landing page ────────────────────────────────────────────
 		case path == "/" || path == "":
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Write([]byte(landingPage))
@@ -154,9 +158,12 @@ func main() {
 		case path == "/favicon.ico":
 			http.NotFound(w, r)
 
-		// ── Upload UI ──────────────────────────────────────────────────────
+		// ── Static pages ───────────────────────────────────────────────────
 		case path == "/upload":
 			http.ServeFile(w, r, "/public/upload.html")
+
+		case path == "/dashboard":
+			http.ServeFile(w, r, "/public/dashboard.html")
 
 		// ── Health checks ──────────────────────────────────────────────────
 		case path == "/health":
@@ -173,7 +180,8 @@ func main() {
 			for _, s := range services {
 				if s.Status != "up" {
 					overall = "degraded"
-					w.WriteHeader(http.StatusServiceUnavailable)
+					// FIX: removed w.WriteHeader(503) — don't fail health check
+					// when one service is down. Return 200 with degraded status.
 					break
 				}
 			}

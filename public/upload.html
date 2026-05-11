@@ -7,112 +7,156 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #080c14; --surface: #0d1520; --surface2: #111d2e;
-            --border: #1e3048; --accent: #00d4ff; --accent2: #ff6b35;
-            --green: #00e676; --red: #ff3d57; --text: #e8f4ff; --muted: #4a6380;
-            --mono: 'DM Mono', monospace; --display: 'Bebas Neue', sans-serif; --body: 'DM Sans', sans-serif;
+            --bg:#080c14;--surface:#0d1520;--surface2:#111d2e;
+            --border:#1e3048;--accent:#00d4ff;--accent2:#ff6b35;
+            --green:#00e676;--red:#ff3d57;--text:#e8f4ff;--muted:#4a6380;
+            --mono:'DM Mono',monospace;--display:'Bebas Neue',sans-serif;--body:'DM Sans',sans-serif;
         }
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { background:var(--bg); color:var(--text); font-family:var(--body); min-height:100vh; overflow-x:hidden; }
-        body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px); background-size:60px 60px; opacity:.3; pointer-events:none; z-index:0; }
-        .container { position:relative; z-index:1; max-width:860px; margin:0 auto; padding:40px 24px; }
-        header { display:flex; align-items:center; justify-content:space-between; margin-bottom:48px; padding-bottom:24px; border-bottom:1px solid var(--border); }
-        .logo { display:flex; align-items:center; gap:12px; }
-        .logo-icon { width:40px; height:40px; background:var(--accent); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:20px; }
-        .logo-text { font-family:var(--display); font-size:24px; letter-spacing:2px; }
-        .logo-sub { font-family:var(--mono); font-size:10px; color:var(--accent); letter-spacing:3px; text-transform:uppercase; }
-        .status-pill { display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:100px; padding:6px 16px; font-family:var(--mono); font-size:11px; color:var(--muted); }
-        .status-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:blink 2s infinite; }
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
-        .page-title { font-family:var(--display); font-size:56px; letter-spacing:4px; line-height:1; margin-bottom:8px; background:linear-gradient(135deg,var(--text) 0%,var(--accent) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-        .page-sub { color:var(--muted); font-size:14px; margin-bottom:40px; font-family:var(--mono); letter-spacing:1px; }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{background:var(--bg);color:var(--text);font-family:var(--body);min-height:100vh;overflow-x:hidden}
+        body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:.3;pointer-events:none;z-index:0}
+        .container{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:40px 24px}
+        header{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+        .logo{display:flex;align-items:center;gap:12px}
+        .logo-icon{width:40px;height:40px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px}
+        .logo-text{font-family:var(--display);font-size:24px;letter-spacing:2px}
+        .logo-sub{font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:3px;text-transform:uppercase}
+        .status-pill{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:6px 16px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+        .status-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
-        .steps { display:flex; align-items:center; margin-bottom:40px; }
-        .step { display:flex; align-items:center; gap:10px; flex:1; }
-        .step-num { width:32px; height:32px; border-radius:50%; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:12px; color:var(--muted); flex-shrink:0; transition:all .3s; }
-        .step.active .step-num { border-color:var(--accent); color:var(--accent); background:rgba(0,212,255,.1); }
-        .step.done .step-num { border-color:var(--green); color:var(--green); background:rgba(0,230,118,.1); }
-        .step-label { font-size:12px; color:var(--muted); font-family:var(--mono); letter-spacing:1px; text-transform:uppercase; }
-        .step.active .step-label { color:var(--accent); }
-        .step.done .step-label { color:var(--green); }
-        .step-line { height:1px; flex:1; background:var(--border); margin:0 12px; }
+        /* Tabs */
+        .tabs{display:flex;gap:0;margin-bottom:28px;border-bottom:1px solid var(--border)}
+        .tab{padding:12px 24px;font-family:var(--mono);font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:.2s;margin-bottom:-1px}
+        .tab:hover{color:var(--accent)}
+        .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 
-        .user-bar { display:none; align-items:center; gap:12px; background:var(--surface2); border:1px solid var(--green); border-radius:10px; padding:12px 16px; margin-bottom:24px; font-family:var(--mono); font-size:12px; }
-        .user-bar.visible { display:flex; }
-        .role-badge { background:rgba(0,230,118,.1); border:1px solid var(--green); color:var(--green); border-radius:4px; padding:2px 8px; font-size:10px; }
-        .role-badge.viewer { background:rgba(255,107,53,.1); border-color:var(--accent2); color:var(--accent2); }
+        .user-bar{display:none;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--green);border-radius:10px;padding:12px 16px;margin-bottom:24px;font-family:var(--mono);font-size:12px}
+        .user-bar.visible{display:flex}
+        .role-badge{background:rgba(0,230,118,.1);border:1px solid var(--green);color:var(--green);border-radius:4px;padding:2px 8px;font-size:10px}
+        .role-badge.viewer{background:rgba(255,107,53,.1);border-color:var(--accent2);color:var(--accent2)}
 
-        .section { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:32px; margin-bottom:24px; display:none; animation:fadeIn .3s ease; }
-        .section.visible { display:block; }
-        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        .section-title { font-family:var(--display); font-size:22px; letter-spacing:2px; margin-bottom:6px; color:var(--accent); }
-        .section-desc { font-size:13px; color:var(--muted); margin-bottom:24px; font-family:var(--mono); }
+        .section{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;margin-bottom:24px;display:none;animation:fadeIn .3s ease}
+        .section.visible{display:block}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        .section-title{font-family:var(--display);font-size:22px;letter-spacing:2px;margin-bottom:6px;color:var(--accent)}
+        .section-desc{font-size:13px;color:var(--muted);margin-bottom:24px;font-family:var(--mono)}
 
-        .field { margin-bottom:16px; }
-        label { display:block; font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
-        input[type="text"],input[type="email"],input[type="password"],textarea { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px 16px; color:var(--text); font-family:var(--mono); font-size:13px; outline:none; transition:border-color .2s; }
-        input:focus,textarea:focus { border-color:var(--accent); }
-        textarea { resize:vertical; min-height:80px; }
+        .field{margin-bottom:16px}
+        label{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+        input[type="text"],input[type="email"],input[type="password"],textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;color:var(--text);font-family:var(--mono);font-size:13px;outline:none;transition:border-color .2s}
+        input:focus,textarea:focus{border-color:var(--accent)}
+        textarea{resize:vertical;min-height:80px}
 
-        .btn { display:inline-flex; align-items:center; gap:8px; padding:12px 28px; border-radius:8px; font-family:var(--mono); font-size:13px; letter-spacing:1px; cursor:pointer; border:none; transition:all .2s; text-transform:uppercase; }
-        .btn-primary { background:var(--accent); color:var(--bg); font-weight:600; }
-        .btn-primary:hover { opacity:.85; transform:translateY(-1px); }
-        .btn-primary:disabled { opacity:.4; cursor:not-allowed; transform:none; }
-        .btn-outline { background:transparent; border:1px solid var(--border); color:var(--muted); }
-        .btn-outline:hover { border-color:var(--accent); color:var(--accent); }
+        .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:8px;font-family:var(--mono);font-size:13px;letter-spacing:1px;cursor:pointer;border:none;transition:all .2s;text-transform:uppercase}
+        .btn-primary{background:var(--accent);color:var(--bg);font-weight:600}
+        .btn-primary:hover{opacity:.85;transform:translateY(-1px)}
+        .btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
+        .btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted)}
+        .btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+        .btn-sm{padding:6px 14px;font-size:11px}
 
-        .dropzone { border:2px dashed var(--border); border-radius:16px; padding:60px 40px; text-align:center; cursor:pointer; transition:all .3s; position:relative; overflow:hidden; }
-        .dropzone:hover,.dropzone.drag-over { border-color:var(--accent); background:rgba(0,212,255,.03); }
-        .dropzone input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
-        .drop-icon { font-size:48px; margin-bottom:16px; display:block; }
-        .drop-title { font-family:var(--display); font-size:24px; letter-spacing:2px; margin-bottom:8px; }
-        .drop-sub { font-family:var(--mono); font-size:12px; color:var(--muted); }
+        .steps{display:flex;align-items:center;margin-bottom:40px}
+        .step{display:flex;align-items:center;gap:10px;flex:1}
+        .step-num{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--muted);flex-shrink:0;transition:all .3s}
+        .step.active .step-num{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.1)}
+        .step.done .step-num{border-color:var(--green);color:var(--green);background:rgba(0,230,118,.1)}
+        .step-label{font-size:12px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;text-transform:uppercase}
+        .step.active .step-label{color:var(--accent)}
+        .step.done .step-label{color:var(--green)}
+        .step-line{height:1px;flex:1;background:var(--border);margin:0 12px}
 
-        .file-selected { display:none; align-items:center; gap:12px; background:var(--surface2); border:1px solid var(--green); border-radius:10px; padding:16px; margin-top:16px; }
-        .file-selected.visible { display:flex; }
-        .file-name { font-family:var(--mono); font-size:13px; color:var(--green); }
-        .file-size { font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:2px; }
+        .dropzone{border:2px dashed var(--border);border-radius:16px;padding:60px 40px;text-align:center;cursor:pointer;transition:all .3s;position:relative;overflow:hidden}
+        .dropzone:hover,.dropzone.drag-over{border-color:var(--accent);background:rgba(0,212,255,.03)}
+        .dropzone input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+        .drop-icon{font-size:48px;margin-bottom:16px;display:block}
+        .drop-title{font-family:var(--display);font-size:24px;letter-spacing:2px;margin-bottom:8px}
+        .drop-sub{font-family:var(--mono);font-size:12px;color:var(--muted)}
+        .file-selected{display:none;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--green);border-radius:10px;padding:16px;margin-top:16px}
+        .file-selected.visible{display:flex}
+        .file-name{font-family:var(--mono);font-size:13px;color:var(--green)}
+        .file-size{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px}
 
-        .progress-wrap { display:none; margin-top:20px; }
-        .progress-wrap.visible { display:block; }
-        .progress-label { display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:8px; }
-        .progress-bar { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
-        .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:3px; width:0%; transition:width .3s; }
-        @keyframes indeterminate { 0%{width:0%;margin-left:0%} 50%{width:60%;margin-left:20%} 100%{width:0%;margin-left:100%} }
+        .progress-wrap{display:none;margin-top:20px}
+        .progress-wrap.visible{display:block}
+        .progress-label{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px}
+        .progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+        .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;width:0%;transition:width .3s}
+        @keyframes indeterminate{0%{width:0%;margin-left:0%}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
 
-        .log { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:16px; margin-top:20px; font-family:var(--mono); font-size:12px; max-height:180px; overflow-y:auto; display:none; }
-        .log.visible { display:block; }
-        .log-line { display:flex; gap:12px; padding:4px 0; border-bottom:1px solid var(--border); color:var(--muted); }
-        .log-line:last-child { border-bottom:none; }
-        .log-line.success { color:var(--green); }
-        .log-line.error { color:var(--red); }
-        .log-line.info { color:var(--accent); }
-        .log-time { opacity:.5; flex-shrink:0; }
+        .log{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:20px;font-family:var(--mono);font-size:12px;max-height:180px;overflow-y:auto;display:none}
+        .log.visible{display:block}
+        .log-line{display:flex;gap:12px;padding:4px 0;border-bottom:1px solid var(--border);color:var(--muted)}
+        .log-line:last-child{border-bottom:none}
+        .log-line.success{color:var(--green)}
+        .log-line.error{color:var(--red)}
+        .log-line.info{color:var(--accent)}
+        .log-time{opacity:.5;flex-shrink:0}
 
-        .result-card { display:none; background:var(--surface2); border:1px solid var(--green); border-radius:12px; padding:24px; margin-top:20px; }
-        .result-card.visible { display:block; }
-        .result-title { font-family:var(--display); font-size:22px; letter-spacing:2px; color:var(--green); margin-bottom:20px; }
-        .result-field { display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; }
-        .result-key { font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; width:80px; flex-shrink:0; padding-top:2px; }
-        .result-val { font-family:var(--mono); font-size:12px; color:var(--text); word-break:break-all; flex:1; }
-        .copy-btn { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-family:var(--mono); font-size:10px; color:var(--muted); cursor:pointer; flex-shrink:0; transition:all .2s; }
-        .copy-btn:hover { border-color:var(--accent); color:var(--accent); }
-        .copy-btn.copied { border-color:var(--green); color:var(--green); }
+        .result-card{display:none;background:var(--surface2);border:1px solid var(--green);border-radius:12px;padding:24px;margin-top:20px}
+        .result-card.visible{display:block}
+        .result-title{font-family:var(--display);font-size:22px;letter-spacing:2px;color:var(--green);margin-bottom:20px}
+        .result-field{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+        .result-key{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;width:80px;flex-shrink:0;padding-top:2px}
+        .result-val{font-family:var(--mono);font-size:12px;color:var(--text);word-break:break-all;flex:1}
+        .copy-btn{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;flex-shrink:0;transition:all .2s}
+        .copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+        .copy-btn.copied{border-color:var(--green);color:var(--green)}
 
-        .alert { display:none; padding:12px 16px; border-radius:8px; font-family:var(--mono); font-size:12px; margin-bottom:16px; }
-        .alert.visible { display:flex; align-items:center; gap:8px; }
-        .alert.error { background:rgba(255,61,87,.1); border:1px solid var(--red); color:var(--red); }
-        .alert.success { background:rgba(0,230,118,.1); border:1px solid var(--green); color:var(--green); }
+        .alert{display:none;padding:12px 16px;border-radius:8px;font-family:var(--mono);font-size:12px;margin-bottom:16px}
+        .alert.visible{display:flex;align-items:center;gap:8px}
+        .alert.error{background:rgba(255,61,87,.1);border:1px solid var(--red);color:var(--red)}
+        .alert.success{background:rgba(0,230,118,.1);border:1px solid var(--green);color:var(--green)}
 
-        .spinner { display:inline-block; width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
-        @keyframes spin { to{transform:rotate(360deg)} }
-        .two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 
-        .video-preview { width:100%; aspect-ratio:16/9; background:#000; border-radius:10px; overflow:hidden; margin-top:16px; display:none; }
-        .video-preview.visible { display:block; }
-        .video-preview video { width:100%; height:100%; }
+        .video-preview{width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;overflow:hidden;margin-top:16px;display:none}
+        .video-preview.visible{display:block}
+        .video-preview video{width:100%;height:100%}
 
-        @media(max-width:600px) { .two-col{grid-template-columns:1fr} .page-title{font-size:36px} .steps{display:none} }
+        /* ── Video Library ─────────────────────────────────────────────── */
+        .library-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+        .library-count{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:1px}
+
+        .video-grid{display:flex;flex-direction:column;gap:12px}
+
+        .video-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:20px;transition:.2s;position:relative}
+        .video-card:hover{border-color:rgba(0,212,255,.3)}
+        .video-card.ready{border-left:3px solid var(--green)}
+        .video-card.transcoding{border-left:3px solid var(--yellow, #ffd700)}
+        .video-card.failed{border-left:3px solid var(--red)}
+        .video-card.uploading{border-left:3px solid var(--muted)}
+
+        .vc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+        .vc-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px}
+        .vc-meta{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px}
+
+        .status-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;font-family:var(--mono);font-size:10px;letter-spacing:1px;flex-shrink:0}
+        .sb-ready{background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.2)}
+        .sb-transcoding{background:rgba(255,215,0,.1);color:#ffd700;border:1px solid rgba(255,215,0,.2)}
+        .sb-failed{background:rgba(255,61,87,.1);color:var(--red);border:1px solid rgba(255,61,87,.2)}
+        .sb-uploading{background:rgba(74,99,128,.1);color:var(--muted);border:1px solid var(--border)}
+
+        .vc-urls{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+        .vc-url-row{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px}
+        .vc-url-label{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;flex-shrink:0;width:60px}
+        .vc-url-val{font-family:var(--mono);font-size:11px;color:var(--accent);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .vc-url-val.empty{color:var(--muted);font-style:italic}
+
+        .vc-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+
+        .vc-broadcaster{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+
+        .empty-state{text-align:center;padding:60px 20px;color:var(--muted);font-family:var(--mono);font-size:13px}
+        .empty-icon{font-size:48px;margin-bottom:16px;opacity:.4}
+
+        .filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+        .filter-btn{padding:6px 14px;border-radius:6px;font-family:var(--mono);font-size:10px;letter-spacing:1px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:.2s}
+        .filter-btn:hover,.filter-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.05)}
+
+        @media(max-width:600px){.two-col{grid-template-columns:1fr}.steps{display:none}.vc-top{flex-direction:column}}
     </style>
 </head>
 <body>
@@ -123,134 +167,169 @@
             <div class="logo-icon">▶</div>
             <div>
                 <div class="logo-text">SPORTS STREAM</div>
-                <div class="logo-sub">Video Upload Portal</div>
+                <div class="logo-sub">Broadcaster Portal</div>
             </div>
         </div>
         <div class="status-pill"><span class="status-dot"></span><span id="statusText">connecting...</span></div>
     </header>
 
-    <div class="page-title">UPLOAD VIDEO</div>
-    <div class="page-sub">// upload to GCS → FFmpeg HLS transcode → ready for ExoPlayer</div>
-
-    <!-- 5 steps -->
-    <div class="steps">
-        <div class="step active" id="step1"><div class="step-num">01</div><div class="step-label">Sign In</div></div>
-        <div class="step-line"></div>
-        <div class="step" id="step2"><div class="step-num">02</div><div class="step-label">Details</div></div>
-        <div class="step-line"></div>
-        <div class="step" id="step3"><div class="step-num">03</div><div class="step-label">Upload</div></div>
-        <div class="step-line"></div>
-        <div class="step" id="step4"><div class="step-num">04</div><div class="step-label">Transcode</div></div>
-        <div class="step-line"></div>
-        <div class="step" id="step5"><div class="step-num">05</div><div class="step-label">Ready</div></div>
-    </div>
-
     <div class="user-bar" id="userBar">
         <span>✓</span><span id="userEmail">—</span>
         <span class="role-badge" id="userRole">viewer</span>
         <span style="flex:1"></span>
-        <button class="btn-outline btn" onclick="signOut()" style="padding:4px 12px;font-size:11px">Sign Out</button>
+        <button class="btn-outline btn btn-sm" onclick="signOut()">Sign Out</button>
     </div>
 
-    <!-- SECTION 1: Sign In -->
-    <div class="section visible" id="secAuth">
-        <div class="section-title">SIGN IN</div>
-        <div class="section-desc">// firebase account with broadcaster role</div>
-        <div class="alert" id="authAlert"></div>
-        <div class="field"><label>Email</label><input type="email" id="email" placeholder="you@example.com" /></div>
-        <div class="field"><label>Password</label><input type="password" id="password" placeholder="••••••••" /></div>
-        <button class="btn btn-primary" onclick="signIn()" id="btnSignIn">SIGN IN →</button>
+    <!-- TABS -->
+    <div class="tabs" id="mainTabs" style="display:none">
+        <div class="tab active" onclick="switchTab('upload',this)">📹 Upload Video</div>
+        <div class="tab" onclick="switchTab('library',this)">📚 Video Library</div>
     </div>
 
-    <!-- SECTION 2: Details -->
-    <div class="section" id="secDetails">
-        <div class="section-title">VIDEO DETAILS</div>
-        <div class="section-desc">// enter title and optional stream link</div>
-        <div class="alert" id="detailsAlert"></div>
-        <div class="two-col">
-            <div class="field"><label>Title *</label><input type="text" id="videoTitle" placeholder="Match Highlights 2026" /></div>
-            <div class="field"><label>Stream ID (optional)</label><input type="text" id="streamId" placeholder="stream_1773883427477" /></div>
+    <!-- ══════════════════════ UPLOAD TAB ══════════════════════ -->
+    <div id="tabUpload">
+
+        <!-- Sign In -->
+        <div class="section visible" id="secAuth">
+            <div class="section-title">SIGN IN</div>
+            <div class="section-desc">// firebase account with broadcaster role</div>
+            <div class="alert" id="authAlert"></div>
+            <div class="field"><label>Email</label><input type="email" id="email" placeholder="you@example.com" /></div>
+            <div class="field"><label>Password</label><input type="password" id="password" placeholder="••••••••" /></div>
+            <button class="btn btn-primary" onclick="signIn()" id="btnSignIn">SIGN IN →</button>
         </div>
-        <div class="field"><label>Description</label><textarea id="videoDesc" placeholder="Match highlights..."></textarea></div>
-        <button class="btn btn-primary" onclick="goToUpload()">CONTINUE →</button>
+
+        <!-- Details -->
+        <div class="section" id="secDetails">
+            <div class="section-title">VIDEO DETAILS</div>
+            <div class="section-desc">// enter title before uploading</div>
+            <div class="alert" id="detailsAlert"></div>
+            <div class="steps">
+                <div class="step active" id="step1"><div class="step-num">01</div><div class="step-label">Details</div></div>
+                <div class="step-line"></div>
+                <div class="step" id="step2"><div class="step-num">02</div><div class="step-label">Upload</div></div>
+                <div class="step-line"></div>
+                <div class="step" id="step3"><div class="step-num">03</div><div class="step-label">Transcode</div></div>
+                <div class="step-line"></div>
+                <div class="step" id="step4"><div class="step-num">04</div><div class="step-label">Ready</div></div>
+            </div>
+            <div class="two-col">
+                <div class="field"><label>Title *</label><input type="text" id="videoTitle" placeholder="Match Highlights 2026" /></div>
+                <div class="field"><label>Stream ID (optional)</label><input type="text" id="streamId" placeholder="stream_1773883427477" /></div>
+            </div>
+            <div class="field"><label>Description</label><textarea id="videoDesc" placeholder="Match highlights..."></textarea></div>
+            <button class="btn btn-primary" onclick="goToUpload()">CONTINUE →</button>
+        </div>
+
+        <!-- Upload -->
+        <div class="section" id="secUpload">
+            <div class="section-title">SELECT VIDEO</div>
+            <div class="section-desc">// mp4 recommended · uploads directly to GCS</div>
+            <div class="steps">
+                <div class="step done" id="s1"><div class="step-num">01</div><div class="step-label">Details</div></div>
+                <div class="step-line"></div>
+                <div class="step active" id="s2"><div class="step-num">02</div><div class="step-label">Upload</div></div>
+                <div class="step-line"></div>
+                <div class="step" id="s3"><div class="step-num">03</div><div class="step-label">Transcode</div></div>
+                <div class="step-line"></div>
+                <div class="step" id="s4"><div class="step-num">04</div><div class="step-label">Ready</div></div>
+            </div>
+            <div class="alert" id="uploadAlert"></div>
+            <div class="dropzone" id="dropzone">
+                <input type="file" id="fileInput" accept="video/mp4,video/*" onchange="fileSelected(this)" />
+                <span class="drop-icon">📹</span>
+                <div class="drop-title">DROP VIDEO HERE</div>
+                <div class="drop-sub">or click to browse · MP4 recommended</div>
+            </div>
+            <div class="file-selected" id="fileInfo">
+                <span style="font-size:24px">🎬</span>
+                <div style="flex:1">
+                    <div class="file-name" id="fileName">—</div>
+                    <div class="file-size" id="fileSize">—</div>
+                </div>
+                <button class="copy-btn" onclick="clearFile()">✕ Remove</button>
+            </div>
+            <div class="progress-wrap" id="uploadProgress">
+                <div class="progress-label"><span id="uploadStatus">Uploading...</span><span id="uploadPct">0%</span></div>
+                <div class="progress-bar"><div class="progress-fill" id="uploadFill"></div></div>
+            </div>
+            <div class="log" id="uploadLog"></div>
+            <div style="margin-top:20px;display:flex;gap:12px" id="uploadBtns">
+                <button class="btn btn-outline" onclick="goBack()">← Back</button>
+                <button class="btn btn-primary" onclick="startUpload()" id="btnUpload" disabled>UPLOAD →</button>
+            </div>
+        </div>
+
+        <!-- Transcoding -->
+        <div class="section" id="secTranscode">
+            <div class="section-title">TRANSCODING</div>
+            <div class="section-desc">// FFmpeg converting to HLS — 720p inside Docker container</div>
+            <div class="steps">
+                <div class="step done"><div class="step-num">01</div><div class="step-label">Details</div></div>
+                <div class="step-line"></div>
+                <div class="step done"><div class="step-num">02</div><div class="step-label">Upload</div></div>
+                <div class="step-line"></div>
+                <div class="step active"><div class="step-num">03</div><div class="step-label">Transcode</div></div>
+                <div class="step-line"></div>
+                <div class="step" id="stepReady"><div class="step-num">04</div><div class="step-label">Ready</div></div>
+            </div>
+            <div class="progress-wrap visible">
+                <div class="progress-label"><span id="transcodeStatus">Starting FFmpeg...</span><span id="transcodePct">—</span></div>
+                <div class="progress-bar"><div class="progress-fill" id="transcodeFill" style="animation:indeterminate 2s infinite"></div></div>
+            </div>
+            <div class="log visible" id="transcodeLog"></div>
+            <div class="result-card" id="resultCard">
+                <div class="result-title">✓ HLS READY</div>
+                <div class="result-field">
+                    <span class="result-key">Video ID</span>
+                    <span class="result-val" id="resVideoId">—</span>
+                    <button class="copy-btn" onclick="copyVal('resVideoId',this)">Copy</button>
+                </div>
+                <div class="result-field">
+                    <span class="result-key">HLS URL</span>
+                    <span class="result-val" id="resHlsUrl">—</span>
+                    <button class="copy-btn" onclick="copyVal('resHlsUrl',this)">Copy</button>
+                </div>
+                <div class="result-field">
+                    <span class="result-key">ExoPlayer</span>
+                    <span class="result-val" style="color:var(--green)">✓ Paste HLS URL directly into ExoPlayer</span>
+                </div>
+                <div class="video-preview" id="videoPreview"><video id="previewPlayer" controls></video></div>
+                <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
+                    <button class="btn btn-primary" onclick="previewVideo()">▶ PREVIEW</button>
+                    <button class="btn btn-outline" onclick="uploadAnother()">+ UPLOAD ANOTHER</button>
+                    <button class="btn btn-outline" onclick="switchTab('library',document.querySelectorAll('.tab')[1])">📚 VIEW LIBRARY</button>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /tabUpload -->
+
+    <!-- ══════════════════════ LIBRARY TAB ══════════════════════ -->
+    <div id="tabLibrary" style="display:none">
+        <div class="library-header">
+            <div>
+                <div style="font-family:var(--display);font-size:28px;letter-spacing:2px;color:var(--text)">VIDEO LIBRARY</div>
+                <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px">All uploaded videos · HLS URLs · broadcaster history</div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="loadLibrary()">⟳ Refresh</button>
+        </div>
+
+        <div class="filter-bar">
+            <button class="filter-btn active" onclick="filterVideos('all',this)">ALL</button>
+            <button class="filter-btn" onclick="filterVideos('ready',this)">✓ READY</button>
+            <button class="filter-btn" onclick="filterVideos('transcoding',this)">⟳ TRANSCODING</button>
+            <button class="filter-btn" onclick="filterVideos('failed',this)">✕ FAILED</button>
+        </div>
+
+        <div class="library-count" id="libraryCount">Loading...</div>
+        <div class="video-grid" id="videoGrid">
+            <div class="empty-state"><div class="empty-icon">📹</div>Loading videos...</div>
+        </div>
     </div>
 
-    <!-- SECTION 3: Upload -->
-    <div class="section" id="secUpload">
-        <div class="section-title">SELECT VIDEO</div>
-        <div class="section-desc">// mp4 recommended · uploads directly to GCS</div>
-        <div class="alert" id="uploadAlert"></div>
-        <div class="dropzone" id="dropzone">
-            <input type="file" id="fileInput" accept="video/mp4,video/*" onchange="fileSelected(this)" />
-            <span class="drop-icon">📹</span>
-            <div class="drop-title">DROP VIDEO HERE</div>
-            <div class="drop-sub">or click to browse · MP4 recommended</div>
-        </div>
-        <div class="file-selected" id="fileInfo">
-            <span style="font-size:24px">🎬</span>
-            <div style="flex:1">
-                <div class="file-name" id="fileName">—</div>
-                <div class="file-size" id="fileSize">—</div>
-            </div>
-            <button class="copy-btn" onclick="clearFile()">✕ Remove</button>
-        </div>
-        <div class="progress-wrap" id="uploadProgress">
-            <div class="progress-label">
-                <span id="uploadStatus">Uploading...</span>
-                <span id="uploadPct">0%</span>
-            </div>
-            <div class="progress-bar"><div class="progress-fill" id="uploadFill"></div></div>
-        </div>
-        <div class="log" id="uploadLog"></div>
-        <div style="margin-top:20px;display:flex;gap:12px" id="uploadBtns">
-            <button class="btn btn-outline" onclick="goBack()">← Back</button>
-            <button class="btn btn-primary" onclick="startUpload()" id="btnUpload" disabled>UPLOAD →</button>
-        </div>
-    </div>
+</div><!-- /container -->
 
-    <!-- SECTION 4: Transcoding -->
-    <div class="section" id="secTranscode">
-        <div class="section-title">TRANSCODING</div>
-        <div class="section-desc">// FFmpeg converting to HLS — 720p inside Docker container</div>
-        <div class="progress-wrap visible">
-            <div class="progress-label">
-                <span id="transcodeStatus">Starting FFmpeg...</span>
-                <span id="transcodePct">—</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" id="transcodeFill" style="animation:indeterminate 2s infinite"></div>
-            </div>
-        </div>
-        <div class="log visible" id="transcodeLog"></div>
-
-        <!-- Result shown here after transcoding -->
-        <div class="result-card" id="resultCard">
-            <div class="result-title">✓ HLS READY</div>
-            <div class="result-field">
-                <span class="result-key">Video ID</span>
-                <span class="result-val" id="resVideoId">—</span>
-                <button class="copy-btn" onclick="copyVal('resVideoId',this)">Copy</button>
-            </div>
-            <div class="result-field">
-                <span class="result-key">HLS URL</span>
-                <span class="result-val" id="resHlsUrl">—</span>
-                <button class="copy-btn" onclick="copyVal('resHlsUrl',this)">Copy</button>
-            </div>
-            <div class="result-field">
-                <span class="result-key">ExoPlayer</span>
-                <span class="result-val" style="color:var(--green)">✓ Paste HLS URL directly into ExoPlayer</span>
-            </div>
-            <div class="video-preview" id="videoPreview">
-                <video id="previewPlayer" controls></video>
-            </div>
-            <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
-                <button class="btn btn-primary" onclick="previewVideo()">▶ PREVIEW IN BROWSER</button>
-                <button class="btn btn-outline" onclick="uploadAnother()">+ UPLOAD ANOTHER</button>
-            </div>
-        </div>
-    </div>
-
-</div>
 <script>
     const API          = window.location.origin;
     const FIREBASE_KEY = 'AIzaSyBZq6FQWa81-B4PPFqLA-Wh6orSi9xHws4';
@@ -258,8 +337,13 @@
     let token   = localStorage.getItem('ss_token') || '';
     let videoId = '';
     let hlsUrl  = '';
+    let allVideos = [];
+    let currentFilter = 'all';
 
-    window.onload = async () => { checkStatus(); if (token) await loadUser(); };
+    window.onload = async () => {
+        checkStatus();
+        if (token) await loadUser();
+    };
 
     async function checkStatus() {
         try {
@@ -280,11 +364,20 @@
             badge.textContent = user.role;
             badge.className = `role-badge ${user.role !== 'broadcaster' && user.role !== 'admin' ? 'viewer' : ''}`;
             document.getElementById('userBar').classList.add('visible');
-            if (user.role === 'broadcaster' || user.role === 'admin') { showSection('secDetails'); setStep(2); }
-            else showAlert('authAlert', `Role "${user.role}" cannot upload. Ask admin to set broadcaster role.`, 'error');
+            document.getElementById('mainTabs').style.display = 'flex';
+
+            if (user.role === 'broadcaster' || user.role === 'admin') {
+                showSection('secDetails');
+            } else {
+                showAlert('authAlert', `Role "${user.role}" cannot upload.`, 'error');
+                showSection('secAuth');
+            }
+            // Auto-load library
+            loadLibrary();
         } catch { token=''; localStorage.removeItem('ss_token'); }
     }
 
+    // ── Auth ──────────────────────────────────────────────────────────────────────
     async function signIn() {
         const email = document.getElementById('email').value.trim();
         const pass  = document.getElementById('password').value;
@@ -308,14 +401,159 @@
     function signOut() {
         token=''; localStorage.removeItem('ss_token');
         document.getElementById('userBar').classList.remove('visible');
-        showSection('secAuth'); setStep(1);
+        document.getElementById('mainTabs').style.display = 'none';
+        showSection('secAuth');
+        switchTab('upload', document.querySelectorAll('.tab')[0]);
     }
 
+    // ── Tabs ──────────────────────────────────────────────────────────────────────
+    function switchTab(tab, el) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        if (el) el.classList.add('active');
+        document.getElementById('tabUpload').style.display  = tab === 'upload'  ? 'block' : 'none';
+        document.getElementById('tabLibrary').style.display = tab === 'library' ? 'block' : 'none';
+        if (tab === 'library') loadLibrary();
+    }
+
+    // ── Video Library ─────────────────────────────────────────────────────────────
+    async function loadLibrary() {
+        document.getElementById('libraryCount').textContent = 'Loading...';
+        document.getElementById('videoGrid').innerHTML = '<div class="empty-state"><div class="empty-icon">⟳</div>Fetching videos...</div>';
+
+        try {
+            const r = await fetch(`${API}/api/v1/videos`);
+            const d = await r.json();
+            allVideos = d.data || [];
+            renderLibrary();
+        } catch(e) {
+            document.getElementById('videoGrid').innerHTML = `<div class="empty-state"><div class="empty-icon">✕</div>Failed to load: ${e.message}</div>`;
+        }
+    }
+
+    function filterVideos(f, el) {
+        currentFilter = f;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        if (el) el.classList.add('active');
+        renderLibrary();
+    }
+
+    function renderLibrary() {
+        const filtered = currentFilter === 'all'
+            ? allVideos
+            : allVideos.filter(v => v.status === currentFilter);
+
+        document.getElementById('libraryCount').textContent =
+            `${filtered.length} video${filtered.length !== 1 ? 's' : ''} — ${allVideos.length} total`;
+
+        if (!filtered.length) {
+            document.getElementById('videoGrid').innerHTML =
+                '<div class="empty-state"><div class="empty-icon">📹</div>No videos found</div>';
+            return;
+        }
+
+        document.getElementById('videoGrid').innerHTML = filtered.map(v => {
+            const statusClass = v.status === 'ready' ? 'ready'
+                : v.status === 'transcoding' ? 'transcoding'
+                    : v.status === 'failed' ? 'failed' : 'uploading';
+
+            const badgeClass = v.status === 'ready' ? 'sb-ready'
+                : v.status === 'transcoding' ? 'sb-transcoding'
+                    : v.status === 'failed' ? 'sb-failed' : 'sb-uploading';
+
+            const statusIcon = v.status === 'ready' ? '✓'
+                : v.status === 'transcoding' ? '⟳'
+                    : v.status === 'failed' ? '✕' : '↑';
+
+            const createdAt = v.createdAt ? new Date(v.createdAt).toLocaleString() : '—';
+            const updatedAt = v.updatedAt ? timeAgo(new Date(v.updatedAt)) : '—';
+
+            const hlsRow = v.hlsUrl
+                ? `<div class="vc-url-row">
+           <span class="vc-url-label">HLS URL</span>
+           <span class="vc-url-val" id="hls_${v.id}">${v.hlsUrl}</span>
+           <button class="copy-btn" onclick="copyText('hls_${v.id}',this)">Copy</button>
+         </div>`
+                : `<div class="vc-url-row">
+           <span class="vc-url-label">HLS URL</span>
+           <span class="vc-url-val empty">${v.status === 'transcoding' ? 'transcoding in progress...' : v.status === 'failed' ? 'transcoding failed' : 'not transcoded yet'}</span>
+         </div>`;
+
+            const gcsRow = v.gcsPath
+                ? `<div class="vc-url-row">
+           <span class="vc-url-label">GCS</span>
+           <span class="vc-url-val" id="gcs_${v.id}">gs://sports-stream-66553.appspot.com/${v.gcsPath}</span>
+           <button class="copy-btn" onclick="copyText('gcs_${v.id}',this)">Copy</button>
+         </div>` : '';
+
+            const retryBtn = (v.status === 'failed' || v.status === 'uploading')
+                ? `<button class="btn btn-outline btn-sm" onclick="retranscode('${v.id}')">⟳ Retry Transcode</button>` : '';
+
+            const previewBtn = v.hlsUrl
+                ? `<button class="btn btn-outline btn-sm" onclick="quickPreview('${v.hlsUrl}','${v.id}')">▶ Preview</button>` : '';
+
+            return `
+      <div class="video-card ${statusClass}" id="card_${v.id}">
+        <div class="vc-top">
+          <div>
+            <div class="vc-title">${v.title || '(no title)'}</div>
+            <div class="vc-meta">ID: ${v.id} · Uploaded: ${createdAt} · Updated: ${updatedAt}</div>
+          </div>
+          <span class="status-badge ${badgeClass}">${statusIcon} ${v.status?.toUpperCase() || 'UNKNOWN'}</span>
+        </div>
+        <div class="vc-urls">
+          ${hlsRow}
+          ${gcsRow}
+        </div>
+        <div class="vc-actions">
+          ${previewBtn}
+          ${retryBtn}
+        </div>
+        <div class="vc-broadcaster">Broadcaster: ${v.uploaderUid || '—'} ${v.streamId ? '· Stream: '+v.streamId : ''}</div>
+        <!-- inline preview player -->
+            <div id="preview_${v.id}" style="display:none;margin-top:12px;aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden">
+            <video controls style="width:100%;height:100%" id="player_${v.id}"></video>
+            </div>
+            </div>`;
+  }).join('');
+}
+
+async function retranscode(id) {
+  if (!token) { alert('Sign in first'); return; }
+  try {
+    const r = await fetch(`${API}/api/v1/videos/${id}/transcode`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+            });
+        const d = await r.json();
+        if (d.success) {
+            alert('Transcoding started! Refresh library in 2-3 minutes.');
+            loadLibrary();
+        } else {
+            alert('Error: ' + d.message);
+        }
+    } catch(e) { alert('Error: ' + e.message); }
+    }
+
+    function quickPreview(url, id) {
+        const div    = document.getElementById(`preview_${id}`);
+        const player = document.getElementById(`player_${id}`);
+        if (div.style.display === 'none') {
+            div.style.display = 'block';
+            player.src = url;
+            player.play();
+        } else {
+            div.style.display = 'none';
+            player.pause();
+            player.src = '';
+        }
+    }
+
+    // ── Upload flow ───────────────────────────────────────────────────────────────
     function goToUpload() {
         if (!document.getElementById('videoTitle').value.trim()) { showAlert('detailsAlert','Title is required','error'); return; }
-        hideAlert('detailsAlert'); showSection('secUpload'); setStep(3);
+        hideAlert('detailsAlert'); showSection('secUpload');
     }
-    function goBack() { showSection('secDetails'); setStep(2); }
+    function goBack() { showSection('secDetails'); }
 
     function fileSelected(input) {
         const file = input.files[0]; if (!file) return;
@@ -352,7 +590,6 @@
         document.getElementById('uploadLog').classList.add('visible');
 
         try {
-            // Step 1 — Get upload URL
             addLog('uploadLog', 'Requesting GCS upload URL...', 'info');
             setUploadProgress(5); setLabel('uploadStatus', 'Getting upload URL...');
 
@@ -369,22 +606,18 @@
             const { data } = await r1.json();
             videoId = data.videoId;
             addLog('uploadLog', `Video ID: ${videoId}`, 'success');
-            addLog('uploadLog', 'Upload URL received', 'success');
             setUploadProgress(10);
 
-            // Step 2 — Upload to GCS
             addLog('uploadLog', `Uploading ${formatBytes(file.size)} to GCS...`, 'info');
             setLabel('uploadStatus', 'Uploading to GCS...');
             await uploadToGCS(data.uploadUrl, file);
 
-            addLog('uploadLog', '✅ Upload to GCS complete!', 'success');
+            addLog('uploadLog', '✅ Upload complete!', 'success');
             setUploadProgress(100);
-            setLabel('uploadStatus', '✓ Upload complete');
+            setLabel('uploadStatus', '✓ Done');
             setLabel('uploadPct', '100%');
 
-            // Step 3 — Start FFmpeg transcoding
             setTimeout(() => startTranscode(), 800);
-
         } catch(e) {
             showAlert('uploadAlert', e.message, 'error');
             addLog('uploadLog', `Error: ${e.message}`, 'error');
@@ -400,36 +633,28 @@
             xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
-                    const pct = Math.round(10 + (e.loaded / e.total) * 85);
-                    setUploadProgress(pct);
+                    setUploadProgress(Math.round(10 + (e.loaded / e.total) * 85));
                     setLabel('uploadPct', `${Math.round((e.loaded / e.total) * 100)}%`);
                 }
             };
-            xhr.onload = () => {
-                if (xhr.status >= 200 && xhr.status < 300) resolve();
-                else reject(new Error(`GCS upload failed: HTTP ${xhr.status}`));
-            };
+            xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`GCS upload failed: HTTP ${xhr.status}`));
             xhr.onerror = () => reject(new Error('Network error during upload'));
             xhr.send(file);
         });
     }
 
-    // ── Transcode ─────────────────────────────────────────────────────────────────
-
     async function startTranscode() {
-        showSection('secTranscode'); setStep(4);
+        showSection('secTranscode');
         addLog('transcodeLog', `Starting FFmpeg for ${videoId}...`, 'info');
         addLog('transcodeLog', 'Converting MP4 → HLS 720p segments...', 'info');
-
         try {
             const r = await fetch(`${API}/api/v1/videos/${videoId}/transcode`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
+                method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!r.ok) { const e = await r.json(); throw new Error(e.message || 'Transcode failed'); }
             const { data } = await r.json();
             addLog('transcodeLog', data.message || 'FFmpeg running...', 'info');
-            addLog('transcodeLog', 'Polling every 15s for completion...', 'info');
+            addLog('transcodeLog', 'Polling every 15s...', 'info');
             pollVideoStatus();
         } catch(e) {
             addLog('transcodeLog', `Error: ${e.message}`, 'error');
@@ -439,59 +664,41 @@
 
     async function pollVideoStatus() {
         let attempts = 0;
-        const maxAttempts = 40; // 10 min max
-
         const poll = async () => {
             attempts++;
-            addLog('transcodeLog', `Check ${attempts}/${maxAttempts} — polling status...`, 'info');
-
+            addLog('transcodeLog', `Check ${attempts}/40 — polling status...`, 'info');
             try {
                 const r = await fetch(`${API}/api/v1/videos/${videoId}`);
                 const { data } = await r.json();
-
                 document.getElementById('transcodeStatus').textContent = `FFmpeg: ${data.status} (check ${attempts})`;
 
                 if (data.status === 'ready') {
                     hlsUrl = data.hlsUrl;
                     onTranscodeComplete(data);
+                    loadLibrary(); // refresh library
                     return;
                 }
-
                 if (data.status === 'failed') {
-                    addLog('transcodeLog', '✕ FFmpeg transcoding failed — check Cloud Run logs', 'error');
-                    document.getElementById('transcodeStatus').textContent = '✕ Transcoding failed';
-                    document.getElementById('transcodeFill').style.animation = 'none';
-                    document.getElementById('transcodeFill').style.background = 'var(--red)';
-                    document.getElementById('transcodeFill').style.width = '100%';
+                    addLog('transcodeLog', '✕ FFmpeg failed — check Cloud Run logs', 'error');
+                    document.getElementById('transcodeStatus').textContent = '✕ Failed';
+                    const fill = document.getElementById('transcodeFill');
+                    fill.style.animation='none'; fill.style.background='var(--red)'; fill.style.width='100%';
                     return;
                 }
-
-                // Still transcoding
-                if (attempts < maxAttempts) setTimeout(poll, 15000);
-                else addLog('transcodeLog', 'Timed out — check Firestore for status', 'error');
-
-            } catch(e) {
-                addLog('transcodeLog', `Poll error: ${e.message}`, 'error');
-                if (attempts < maxAttempts) setTimeout(poll, 15000);
-            }
+                if (attempts < 40) setTimeout(poll, 15000);
+                else addLog('transcodeLog', 'Timed out — check Firestore', 'error');
+            } catch(e) { if (attempts < 40) setTimeout(poll, 15000); }
         };
-
-        setTimeout(poll, 15000); // First check after 15s
+        setTimeout(poll, 15000);
     }
 
     function onTranscodeComplete(video) {
-        addLog('transcodeLog', '✅ HLS transcoding complete!', 'success');
-        setStep(5);
-
-        // Stop indeterminate animation
+        addLog('transcodeLog', '✅ HLS ready!', 'success');
+        document.getElementById('stepReady').classList.add('done');
         const fill = document.getElementById('transcodeFill');
-        fill.style.animation = 'none';
-        fill.style.width = '100%';
-        fill.style.background = 'var(--green)';
+        fill.style.animation='none'; fill.style.width='100%'; fill.style.background='var(--green)';
         document.getElementById('transcodeStatus').textContent = '✓ Ready';
         document.getElementById('transcodePct').textContent = '100%';
-
-        // Show result
         document.getElementById('resVideoId').textContent = video.id;
         document.getElementById('resHlsUrl').textContent  = video.hlsUrl;
         document.getElementById('resultCard').classList.add('visible');
@@ -499,11 +706,9 @@
 
     function previewVideo() {
         if (!hlsUrl) return;
-        const preview = document.getElementById('videoPreview');
-        const player  = document.getElementById('previewPlayer');
-        preview.classList.add('visible');
-        player.src = hlsUrl;
-        player.play();
+        document.getElementById('videoPreview').classList.add('visible');
+        const p = document.getElementById('previewPlayer');
+        p.src = hlsUrl; p.play();
     }
 
     function uploadAnother() {
@@ -519,28 +724,17 @@
         document.getElementById('uploadProgress').classList.remove('visible');
         document.getElementById('uploadBtns').style.opacity = '1';
         document.getElementById('videoTitle').value = '';
-        document.getElementById('videoDesc').value  = '';
-        document.getElementById('streamId').value   = '';
-        // Reset transcode fill
+        document.getElementById('videoDesc').value = '';
+        document.getElementById('streamId').value = '';
         const fill = document.getElementById('transcodeFill');
-        fill.style.animation = 'indeterminate 2s infinite';
-        fill.style.width = '';
-        fill.style.background = '';
-        showSection('secDetails'); setStep(2);
+        fill.style.animation='indeterminate 2s infinite'; fill.style.width=''; fill.style.background='';
+        showSection('secDetails');
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────────
     function showSection(id) {
         document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
-        document.getElementById(id).classList.add('visible');
-    }
-    function setStep(n) {
-        for (let i=1; i<=5; i++) {
-            const el = document.getElementById(`step${i}`);
-            el.classList.remove('active','done');
-            if (i < n) el.classList.add('done');
-            if (i === n) el.classList.add('active');
-        }
+        document.getElementById(id)?.classList.add('visible');
     }
     function showAlert(id, msg, type) { const el=document.getElementById(id); el.textContent=msg; el.className=`alert ${type} visible`; }
     function hideAlert(id) { document.getElementById(id).className='alert'; }
@@ -557,11 +751,19 @@
         navigator.clipboard.writeText(document.getElementById(id).textContent);
         if (btn) { btn.textContent='✓ Copied'; btn.classList.add('copied'); setTimeout(()=>{ btn.textContent='Copy'; btn.classList.remove('copied'); },2000); }
     }
+    function copyText(id, btn) { copyVal(id, btn); }
     function formatBytes(n) {
         if (n<1024) return n+' B';
         if (n<1048576) return (n/1024).toFixed(1)+' KB';
         if (n<1073741824) return (n/1048576).toFixed(1)+' MB';
         return (n/1073741824).toFixed(2)+' GB';
+    }
+    function timeAgo(d) {
+        const s = Math.floor((Date.now()-d)/1000);
+        if (s<60) return s+'s ago';
+        if (s<3600) return Math.floor(s/60)+'m ago';
+        if (s<86400) return Math.floor(s/3600)+'h ago';
+        return Math.floor(s/86400)+'d ago';
     }
 </script>
 </body>

@@ -5,7 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="FFmpeg HLS - upload then transcode, get HLS URL">
+      <change afterPath="$PROJECT_DIR$/public/dashboard.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/public/upload.html" beforeDir="false" afterPath="$PROJECT_DIR$/public/upload.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -103,7 +105,7 @@
       </map>
     </option>
   </component>
-  <component name="RunManager" selected="Go Build.go build sports-stream-backend/services/video">
+  <component name="RunManager" selected="Go Build.go build sports-stream-backend/services/stream">
     <configuration name="go build sports-stream-backend/services/analytics" type="GoApplicationRunConfiguration" factoryName="Go Application" nameIsGenerated="true">
       <module name="sports-stream-backend" />
       <working_directory value="$PROJECT_DIR$" />

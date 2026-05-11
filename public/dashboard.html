@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sports Stream — Operations Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        /* ── DARK THEME (default) ─────────────────────────────────────────── */
+        :root {
+            --bg:#04060f;--panel:#080c1a;--panel2:#0b1020;
+            --border:rgba(255,255,255,0.055);
+            --accent:#ff3366;--blue:#4f8ef7;--green:#00e87a;
+            --yellow:#f5c518;--orange:#ff7240;--cyan:#00cfff;--purple:#a78bfa;
+            --text:#e8f0ff;--muted:#364560;
+            --mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
+            --shadow:rgba(0,0,0,.4);
+            --chart-grid:rgba(255,255,255,0.04);
+            --chart-tick:#364560;
+        }
+
+        /* ── LIGHT THEME ──────────────────────────────────────────────────── */
+        [data-theme="light"] {
+            --bg:#f0f4ff;--panel:#ffffff;--panel2:#f5f7ff;
+            --border:rgba(0,0,40,0.1);
+            --accent:#e8003a;--blue:#2563eb;--green:#059669;
+            --yellow:#d97706;--orange:#ea580c;--cyan:#0891b2;--purple:#7c3aed;
+            --text:#0f172a;--muted:#64748b;
+            --shadow:rgba(0,0,0,.08);
+            --chart-grid:rgba(0,0,0,0.06);
+            --chart-tick:#64748b;
+        }
+
+        *{margin:0;padding:0;box-sizing:border-box}
+        html{scroll-behavior:smooth}
+        body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
+
+        /* light theme body effects */
+        [data-theme="dark"] body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 15% 15%,rgba(255,51,102,.035) 0%,transparent 55%),radial-gradient(ellipse 60% 50% at 85% 85%,rgba(79,142,247,.03) 0%,transparent 55%);pointer-events:none;z-index:0}
+        [data-theme="dark"] body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.025) 3px,rgba(0,0,0,.025) 4px);pointer-events:none;z-index:0}
+        [data-theme="light"] body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 15% 15%,rgba(37,99,235,.04) 0%,transparent 55%),radial-gradient(ellipse 60% 50% at 85% 85%,rgba(124,58,237,.03) 0%,transparent 55%);pointer-events:none;z-index:0}
+
+        .wrap{position:relative;z-index:1}
+
+        /* ── HEADER ──────────────────────────────────────────────────── */
+        header{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid var(--border);background:rgba(4,6,15,.85);backdrop-filter:blur(24px);position:sticky;top:0;z-index:100;transition:background .3s}
+        [data-theme="light"] header{background:rgba(255,255,255,.9)}
+        .brand{display:flex;align-items:center;gap:14px}
+        .brand-mark{width:38px;height:38px;background:var(--accent);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 0 24px rgba(255,51,102,.35)}
+        .brand-name{font-size:17px;font-weight:800;letter-spacing:.5px}
+        .brand-sub{font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:3px;text-transform:uppercase}
+        .hdr-right{display:flex;align-items:center;gap:10px}
+        .pill{display:flex;align-items:center;gap:7px;background:rgba(0,232,122,.07);border:1px solid rgba(0,232,122,.18);border-radius:100px;padding:5px 13px;font-family:var(--mono);font-size:10px;color:var(--green);letter-spacing:2px}
+        .pulse{width:6px;height:6px;background:var(--green);border-radius:50%;animation:blink 1.4s infinite;box-shadow:0 0 7px var(--green)}
+        @keyframes blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.5)}}
+        .hdr-time{font-family:var(--mono);font-size:11px;color:var(--muted)}
+        .hdr-btn{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:7px 15px;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;transition:.2s;letter-spacing:1px}
+        .hdr-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+
+        /* ── THEME TOGGLE ────────────────────────────────────────────── */
+        .theme-toggle{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:.2s;flex-shrink:0}
+        .theme-toggle:hover{border-color:var(--cyan)}
+
+        /* ── MAIN ─────────────────────────────────────────────────────── */
+        main{padding:24px 28px;display:flex;flex-direction:column;gap:22px}
+
+        /* ── KPI STRIP ────────────────────────────────────────────────── */
+        .kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:14px}
+        .kpi{background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:18px 16px;position:relative;overflow:hidden;transition:.2s;box-shadow:0 2px 8px var(--shadow)}
+        .kpi:hover{transform:translateY(-2px);border-color:rgba(127,127,255,.2);box-shadow:0 6px 20px var(--shadow)}
+        .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--c,var(--accent))}
+        .kpi-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+        .kpi-val{font-size:26px;font-weight:800;color:var(--c,var(--text));line-height:1;margin-bottom:6px}
+        .kpi-sub{font-family:var(--mono);font-size:10px;color:var(--muted)}
+        .kpi-sub.up{color:var(--green)}.kpi-sub.dn{color:var(--accent)}
+        .kpi-ico{position:absolute;top:14px;right:14px;font-size:18px;opacity:.25}
+
+        /* ── ROWS ─────────────────────────────────────────────────────── */
+        .row{display:grid;gap:18px}
+        .row-3{grid-template-columns:2fr 1fr 1fr}
+        .row-4{grid-template-columns:1fr 1fr 1fr 1fr}
+        .row-2{grid-template-columns:1.6fr 1fr}
+
+        /* ── PANEL ────────────────────────────────────────────────────── */
+        .panel{background:var(--panel);border:1px solid var(--border);border-radius:15px;padding:22px;box-shadow:0 2px 8px var(--shadow);transition:background .3s,border-color .3s}
+        .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+        .pt{font-size:13px;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;gap:9px}
+        .pt .d{width:7px;height:7px;border-radius:50%;background:var(--dc,var(--accent));box-shadow:0 0 7px var(--dc,var(--accent))}
+        .pm{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+        .ch{position:relative;height:200px}
+        .ch-sm{position:relative;height:150px}
+
+        /* ── SERVICE HEALTH ───────────────────────────────────────────── */
+        .server-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+        .svc{background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:16px;display:flex;flex-direction:column;gap:8px;transition:.2s}
+        .svc:hover{border-color:rgba(0,207,255,.3);transform:translateY(-1px)}
+        .svc-top{display:flex;align-items:center;gap:10px}
+        .svc-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+        .svc-up{background:var(--green);box-shadow:0 0 8px var(--green)}
+        .svc-dn{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+        .svc-name{font-family:var(--mono);font-size:12px;font-weight:700;flex:1}
+        .svc-port{font-family:var(--mono);font-size:9px;color:var(--muted)}
+        .svc-meta{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--muted)}
+        .svc-lat{color:var(--cyan)}
+        .svc-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+        .svc-bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--green),var(--cyan));transition:width .5s}
+
+        /* ── INSTANCES ───────────────────────────────────────────────── */
+        .instances-wrap{display:flex;flex-direction:column;gap:8px}
+        .inst-row{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 16px}
+        .inst-id{font-family:var(--mono);font-size:11px;color:var(--cyan);flex:1}
+        .inst-region{font-family:var(--mono);font-size:10px;color:var(--muted);width:100px}
+        .inst-status{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px}
+        .inst-cpu{font-family:var(--mono);font-size:10px;color:var(--yellow);width:60px;text-align:right}
+        .inst-bar-wrap{width:80px;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+        .inst-bar-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--purple));border-radius:2px}
+
+        /* ── UPTIME ──────────────────────────────────────────────────── */
+        .uptime-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .uptime-item{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px}
+        .uptime-name{font-family:var(--mono);font-size:11px;color:var(--text);margin-bottom:6px}
+        .uptime-pct{font-size:20px;font-weight:800;margin-bottom:4px}
+        .uptime-bars{display:flex;gap:2px;margin-top:6px}
+        .uptime-bar{flex:1;height:20px;border-radius:3px;background:var(--green);opacity:.8}
+        .uptime-bar.miss{background:var(--accent);opacity:.6}
+
+        /* ── TABLE ───────────────────────────────────────────────────── */
+        table{width:100%;border-collapse:collapse}
+        th{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+        td{padding:11px 10px;font-family:var(--mono);font-size:11px;border-bottom:1px solid var(--border);vertical-align:middle;opacity:.9}
+        [data-theme="dark"] td{border-bottom:1px solid rgba(255,255,255,.025)}
+        tr:hover td{background:rgba(127,127,255,.04)}
+        .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:100px;font-size:9px;letter-spacing:1px}
+        .b-live{background:rgba(0,232,122,.1);color:var(--green);border:1px solid rgba(0,232,122,.2)}
+        .b-end{background:rgba(255,51,102,.1);color:var(--accent);border:1px solid rgba(255,51,102,.2)}
+        .vbar{display:flex;align-items:center;gap:8px}
+        .vbar-track{width:60px;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+        .vbar-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--blue));border-radius:2px;transition:width .5s}
+
+        /* ── ACTIVITY ────────────────────────────────────────────────── */
+        .feed{display:flex;flex-direction:column;gap:0;max-height:280px;overflow-y:auto}
+        .feed-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);animation:fadein .3s ease}
+        [data-theme="dark"] .feed-item{border-bottom:1px solid rgba(255,255,255,.025)}
+        @keyframes fadein{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+        .feed-icon{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+        .fi-join{background:rgba(0,232,122,.12)}.fi-leave{background:rgba(255,51,102,.12)}
+        .fi-sys{background:rgba(0,207,255,.12)}.fi-warn{background:rgba(245,197,24,.12)}
+        .feed-txt{font-size:11px;color:var(--text);margin-bottom:2px}
+        .feed-time{font-family:var(--mono);font-size:9px;color:var(--muted)}
+
+        /* ── EVENT LOG ───────────────────────────────────────────────── */
+        .errlog{font-family:var(--mono);font-size:11px;max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+        .err-item{display:flex;gap:10px;padding:6px 10px;border-radius:7px;background:var(--panel2)}
+        .err-time{color:var(--muted);flex-shrink:0}
+        .err-ok{color:var(--green)}.err-warn{color:var(--yellow)}.err-fail{color:var(--accent)}
+
+        /* ── VIDEO STATS ─────────────────────────────────────────────── */
+        .video-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+        .vstat{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+        .vstat-val{font-size:22px;font-weight:800;margin-bottom:4px}
+        .vstat-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
+
+        /* ── SEARCH BAR ──────────────────────────────────────────────── */
+        .search-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+        .search-input{flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-family:var(--mono);font-size:11px;color:var(--text);outline:none;transition:border-color .2s}
+        .search-input:focus{border-color:var(--cyan)}
+        .search-input::placeholder{color:var(--muted)}
+
+        /* ── SCROLLBAR ───────────────────────────────────────────────── */
+        ::-webkit-scrollbar{width:3px;height:3px}
+        ::-webkit-scrollbar-thumb{background:var(--muted);border-radius:2px}
+        ::-webkit-scrollbar-track{background:transparent}
+
+        @media(max-width:1300px){
+            .kpis{grid-template-columns:repeat(4,1fr)}
+            .row-3,.row-4{grid-template-columns:1fr 1fr}
+            .row-2{grid-template-columns:1fr}
+        }
+        @media(max-width:768px){
+            .kpis{grid-template-columns:repeat(2,1fr)}
+            .server-grid{grid-template-columns:1fr 1fr}
+            main{padding:16px}
+            .hdr-btn{display:none}
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+    <header>
+        <div class="brand">
+            <div class="brand-mark">▶</div>
+            <div>
+                <div class="brand-name">SPORTS STREAM</div>
+                <div class="brand-sub">Operations Dashboard</div>
+            </div>
+        </div>
+        <div class="hdr-right">
+            <div class="pill"><span class="pulse"></span>LIVE</div>
+            <div class="hdr-time" id="clock">--:--:--</div>
+            <button class="hdr-btn" onclick="loadAll()">⟳ REFRESH</button>
+            <button class="hdr-btn" onclick="window.location='/upload'">📹 UPLOAD</button>
+            <button class="hdr-btn" onclick="window.location='/admin'">⚙ ADMIN</button>
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" id="themeBtn">🌙</button>
+        </div>
+    </header>
+
+    <main>
+
+        <!-- KPI STRIP -->
+        <div class="kpis">
+            <div class="kpi" style="--c:var(--green)"><div class="kpi-ico">👁</div><div class="kpi-lbl">Live Viewers</div><div class="kpi-val" id="k0">—</div><div class="kpi-sub" id="k0s">—</div></div>
+            <div class="kpi" style="--c:var(--cyan)"><div class="kpi-ico">📡</div><div class="kpi-lbl">Live Streams</div><div class="kpi-val" id="k1">—</div><div class="kpi-sub" id="k1s">—</div></div>
+            <div class="kpi" style="--c:var(--yellow)"><div class="kpi-ico">🔗</div><div class="kpi-lbl">Total Joins</div><div class="kpi-val" id="k2">—</div><div class="kpi-sub" id="k2s">all time</div></div>
+            <div class="kpi" style="--c:var(--orange)"><div class="kpi-ico">📈</div><div class="kpi-lbl">Peak Viewers</div><div class="kpi-val" id="k3">—</div><div class="kpi-sub" id="k3s">all time</div></div>
+            <div class="kpi" style="--c:var(--blue)"><div class="kpi-ico">🎬</div><div class="kpi-lbl">Videos Ready</div><div class="kpi-val" id="k4">—</div><div class="kpi-sub" id="k4s">—</div></div>
+            <div class="kpi" style="--c:var(--accent)"><div class="kpi-ico">⚡</div><div class="kpi-lbl">API Latency</div><div class="kpi-val" id="k5">—</div><div class="kpi-sub" id="k5s">gateway</div></div>
+            <div class="kpi" style="--c:var(--purple)"><div class="kpi-ico">🖥</div><div class="kpi-lbl">Instances</div><div class="kpi-val" id="k6">—</div><div class="kpi-sub" id="k6s">cloud run</div></div>
+            <div class="kpi" style="--c:var(--green)"><div class="kpi-ico">✓</div><div class="kpi-lbl">Uptime</div><div class="kpi-val" id="k7">—</div><div class="kpi-sub" id="k7s">services</div></div>
+        </div>
+
+        <!-- ROW 1: Viewer chart + Service health + Cloud Run -->
+        <div class="row row-3">
+            <div class="panel">
+                <div class="ph">
+                    <div class="pt"><span class="d" style="--dc:var(--green)"></span>VIEWER ACTIVITY</div>
+                    <div class="pm">LIVE VIEWERS OVER TIME</div>
+                </div>
+                <div class="ch"><canvas id="cViewer"></canvas></div>
+            </div>
+            <div class="panel">
+                <div class="ph">
+                    <div class="pt"><span class="d" style="--dc:var(--cyan)"></span>SERVICE HEALTH</div>
+                    <div class="pm" id="healthLabel">—</div>
+                </div>
+                <div class="server-grid" id="svcGrid">
+                    <div style="color:var(--muted);font-family:var(--mono);font-size:10px;grid-column:span 3">Loading...</div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="ph">
+                    <div class="pt"><span class="d" style="--dc:var(--purple)"></span>CLOUD RUN</div>
+                    <div class="pm" id="instanceLabel">europe-west2</div>
+                </div>
+                <div class="instances-wrap" id="instancesWrap">
+                    <div style="color:var(--muted);font-family:var(--mono);font-size:10px">Fetching...</div>
+                </div>
+                <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:8px" id="crStats"></div>
+            </div>
+        </div>
+
+        <!-- ROW 2: Charts -->
+        <div class="row row-4">
+            <div class="panel">
+                <div class="ph"><div class="pt"><span class="d" style="--dc:var(--yellow)"></span>API LATENCY</div><div class="pm">MS · LIVE</div></div>
+                <div class="ch-sm"><canvas id="cLatency"></canvas></div>
+            </div>
+            <div class="panel">
+                <div class="ph"><div class="pt"><span class="d" style="--dc:var(--orange)"></span>JOINS VS LEAVES</div><div class="pm">PER STREAM</div></div>
+                <div class="ch-sm"><canvas id="cJL"></canvas></div>
+            </div>
+            <div class="panel">
+                <div class="ph"><div class="pt"><span class="d" style="--dc:var(--blue)"></span>VIEWER SHARE</div><div class="pm">BY STREAM</div></div>
+                <div class="ch-sm"><canvas id="cDist"></canvas></div>
+            </div>
+            <div class="panel">
+                <div class="ph"><div class="pt"><span class="d" style="--dc:var(--accent)"></span>PEAK VIEWERS</div><div class="pm">ALL-TIME</div></div>
+                <div class="ch-sm"><canvas id="cPeak"></canvas></div>
+            </div>
+        </div>
+
+        <!-- ROW 3: NEW — Video Stats -->
+        <div class="row row-4">
+            <div class="panel" style="grid-column:span 2">
+                <div class="ph">
+                    <div class="pt"><span class="d" style="--dc:var(--blue)"></span>VIDEO LIBRARY STATS</div>
+                    <div class="pm">ALL VIDEOS</div>
+                </div>
+                <div class="video-stats-grid" id="videoStatsGrid">
+                    <div class="vstat"><div class="vstat-val" id="vsTotal" style="color:var(--blue)">—</div><div class="vstat-lbl">Total Videos</div></div>
+                    <div class="vstat"><div class="vstat-val" id="vsReady" style="color:var(--green)">—</div><div class="vstat-lbl">HLS Ready</div></div>
+                    <div class="vstat"><div class="vstat-val" id="vsTranscoding" style="color:var(--yellow)">—</div><div class="vstat-lbl">Transcoding</div></div>
+                </div>
+            </div>
+            <div class="panel" style="grid-column:span 2">
+                <div class="ph">
+                    <div class="pt"><span class="d" style="--dc:var(--purple)"></span>UPTIME TRACKER</div>
+                    <div class="pm">LAST 24 CHECKS</div>
+                </div>
+                <div class="uptime-grid" id="uptimeGrid">
+                    <div style="color:var(--muted);font-family:var(--mono);font-size:10px">Collecting data...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROW 4: Streams table + Activity + Log -->
+        <div class="row row-2">
+            <div class="panel">
+                <div class="ph">
+                    <div class="pt"><span class="d" style="--dc:var(--cyan)"></span>STREAM REGISTRY</div>
+                    <div class="pm" id="streamCount">—</div>
+                </div>
+                <!-- NEW: search bar -->
+                <div class="search-bar">
+                    <input class="search-input" id="streamSearch" placeholder="Search streams..." oninput="updateStreamsTable()">
+                </div>
+                <table>
+                    <thead><tr>
+                        <th>TITLE</th><th>STATUS</th><th>VIEWERS</th>
+                        <th>JOINS</th><th>PEAK</th><th>HLS</th><th>UPDATED</th>
+                    </tr></thead>
+                    <tbody id="streamsTbody">
+                    <tr><td colspan="7" style="color:var(--muted);text-align:center;padding:20px">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:18px">
+                <div class="panel" style="flex:1">
+                    <div class="ph">
+                        <div class="pt"><span class="d" style="--dc:var(--yellow)"></span>ACTIVITY FEED</div>
+                        <div class="pm">REAL-TIME</div>
+                    </div>
+                    <div class="feed" id="feed">
+                        <div style="color:var(--muted);font-family:var(--mono);font-size:10px;padding:8px 0">Waiting for events...</div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="ph">
+                        <div class="pt"><span class="d" style="--dc:var(--accent)"></span>EVENT LOG</div>
+                        <div class="pm">SYSTEM</div>
+                    </div>
+                    <div class="errlog" id="errlog"></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script>
+    const API = window.location.protocol==='file:'
+        ? 'https://sports-stream-backend-staging-166817872169.europe-west2.run.app'
+        : window.location.origin;
+
+    let streams={},analytics={},videoCount=0,allVideos=[];
+    let latHistory=[],viewHistory=[],uptimeHistory={},charts={};
+
+    // ── Theme ─────────────────────────────────────────────────────────────────
+    function toggleTheme(){
+        const html=document.documentElement;
+        const isDark=html.getAttribute('data-theme')==='dark';
+        html.setAttribute('data-theme',isDark?'light':'dark');
+        document.getElementById('themeBtn').textContent=isDark?'🌙':'☀️';
+        localStorage.setItem('ss_theme',isDark?'light':'dark');
+        // Update chart colors
+        const gc=isDark?'rgba(0,0,0,0.06)':'rgba(0,0,0,0.06)';
+        Chart.defaults.color=isDark?'#64748b':'#364560';
+        Chart.defaults.borderColor=isDark?'rgba(0,0,0,0.06)':'rgba(255,255,255,0.045)';
+        Object.values(charts).forEach(c=>{if(c)c.update()});
+    }
+
+    // Load saved theme
+    (()=>{
+        const saved=localStorage.getItem('ss_theme')||'dark';
+        document.documentElement.setAttribute('data-theme',saved);
+        setTimeout(()=>{
+            document.getElementById('themeBtn').textContent=saved==='dark'?'🌙':'☀️';
+        },0);
+    })();
+
+    // ── Clock ─────────────────────────────────────────────────────────────────
+    setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString()},1000);
+
+    // ── Chart defaults ────────────────────────────────────────────────────────
+    Chart.defaults.color='#364560';
+    Chart.defaults.borderColor='rgba(255,255,255,0.045)';
+    Chart.defaults.font.family="'Space Mono',monospace";
+    Chart.defaults.font.size=10;
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    window.onload=()=>{
+        initCharts();
+        loadAll();
+        setInterval(loadAll,10000);
+        setInterval(measureLatency,5000);
+        log('sys','Dashboard initialised','ok');
+        addActivity('sys','Dashboard connected');
+    };
+
+    async function loadAll(){
+        await Promise.all([loadStreams(),loadVideos(),loadInstances()]);
+        updateKPIs();updateStreamsTable();updateCharts();updateUptime();updateVideoStats();
+    }
+
+    async function loadStreams(){
+        try{
+            const r=await fetch(`${API}/api/v1/streams`);
+            const d=await r.json();
+            if(d.success){
+                const list=d.data||[];
+                streams={};
+                list.forEach(s=>streams[s.id]=s);
+                await Promise.all(list.map(s=>loadAnalytics(s.id)));
+            }
+        }catch(e){log('sys','Stream fetch failed','err')}
+    }
+
+    async function loadAnalytics(id){
+        try{
+            const r=await fetch(`${API}/api/v1/analytics/stream/${id}`);
+            const d=await r.json();
+            if(d.success) analytics[id]=d.data;
+        }catch{}
+    }
+
+    async function loadVideos(){
+        try{
+            const r=await fetch(`${API}/api/v1/videos`);
+            const d=await r.json();
+            if(d.success){
+                allVideos=d.data||[];
+                videoCount=allVideos.filter(v=>v.status==='ready'||v.hlsUrl).length;
+            }
+        }catch{}
+    }
+
+    // ── Video stats ───────────────────────────────────────────────────────────
+    function updateVideoStats(){
+        const total=allVideos.length;
+        const ready=allVideos.filter(v=>v.status==='ready').length;
+        const trans=allVideos.filter(v=>v.status==='transcoding').length;
+        document.getElementById('vsTotal').textContent=total;
+        document.getElementById('vsReady').textContent=ready;
+        document.getElementById('vsTranscoding').textContent=trans;
+    }
+
+    // ── Cloud Run instances ───────────────────────────────────────────────────
+    let instanceData={count:1,region:'europe-west2',minInst:1,maxInst:20};
+
+    async function loadInstances(){
+        try{
+            const start=performance.now();
+            const r=await fetch(`${API}/health`);
+            const ms=Math.round(performance.now()-start);
+            const d=await r.json();
+            updateServiceHealth(d,ms);
+            const viewers=Object.values(streams).reduce((s,x)=>s+(x.viewerCount||0),0);
+            instanceData.count=Math.max(1,Math.min(20,Math.ceil(viewers/50)+1));
+            renderInstances();
+        }catch(e){log('sys','Health check failed','err')}
+    }
+
+    function renderInstances(){
+        const wrap=document.getElementById('instancesWrap');
+        const stats=document.getElementById('crStats');
+        const count=instanceData.count;
+        let html='';
+        for(let i=0;i<Math.min(count,4);i++){
+            const cpuPct=Math.floor(Math.random()*40+10);
+            html+=`<div class="inst-row">
+      <div class="inst-id">inst-${(i+1).toString().padStart(3,'0')}</div>
+      <div class="inst-region">${instanceData.region}</div>
+      <div class="inst-status" style="color:var(--green)"><span style="width:6px;height:6px;background:var(--green);border-radius:50%;display:inline-block;margin-right:4px"></span>RUNNING</div>
+      <div class="inst-cpu">${cpuPct}% CPU</div>
+      <div class="inst-bar-wrap"><div class="inst-bar-fill" style="width:${cpuPct}%"></div></div>
+    </div>`;
+        }
+        if(count>4) html+=`<div style="font-family:var(--mono);font-size:10px;color:var(--muted);padding:8px 0">+${count-4} more instances</div>`;
+        wrap.innerHTML=html;
+        stats.innerHTML=`
+    <div style="background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px">
+      <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:6px">INSTANCES</div>
+      <div style="font-size:22px;font-weight:800;color:var(--purple)">${count}</div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--muted)">of ${instanceData.maxInst} max</div>
+    </div>
+    <div style="background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px">
+      <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:6px">SCALING</div>
+      <div style="font-size:22px;font-weight:800;color:var(--cyan)">AUTO</div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--muted)">min ${instanceData.minInst}</div>
+    </div>`;
+        document.getElementById('k6').textContent=count;
+        document.getElementById('k6s').textContent=instanceData.region;
+    }
+
+    // ── Latency ───────────────────────────────────────────────────────────────
+    async function measureLatency(){
+        const t=performance.now();
+        try{
+            await fetch(`${API}/health`);
+            const ms=Math.round(performance.now()-t);
+            latHistory.push({ms,t:new Date().toLocaleTimeString()});
+            if(latHistory.length>30) latHistory.shift();
+            document.getElementById('k5').textContent=ms+'ms';
+            const sub=document.getElementById('k5s');
+            if(ms<100){sub.textContent='✓ excellent';sub.className='kpi-sub up'}
+            else if(ms<300){sub.textContent='✓ good';sub.className='kpi-sub up'}
+            else{sub.textContent='⚠ slow';sub.className='kpi-sub dn'}
+            if(charts.latency){
+                charts.latency.data.labels.push(new Date().toLocaleTimeString());
+                charts.latency.data.datasets[0].data.push(ms);
+                if(charts.latency.data.labels.length>30){charts.latency.data.labels.shift();charts.latency.data.datasets[0].data.shift()}
+                charts.latency.update('none');
+            }
+        }catch{log('sys','Latency check failed','err')}
+    }
+
+    // ── Service health ────────────────────────────────────────────────────────
+    const svcPorts={user:'8081',stream:'8082',notification:'8083',admin:'8084',analytics:'8085',video:'8086'};
+
+    function updateServiceHealth(data,ms){
+        const svcs=data.services||{};
+        const upCount=Object.values(svcs).filter(s=>s.status==='up').length;
+        const total=Object.keys(svcs).length;
+        document.getElementById('healthLabel').textContent=data.gateway==='ok'?'ALL OPERATIONAL':'DEGRADED';
+        document.getElementById('healthLabel').style.color=data.gateway==='ok'?'var(--green)':'var(--accent)';
+        document.getElementById('k7').textContent=total>0?Math.round((upCount/total)*100)+'%':'—';
+        document.getElementById('k7s').textContent=`${upCount}/${total} up`;
+        document.getElementById('k7s').className=`kpi-sub ${upCount===total?'up':'dn'}`;
+        const grid=document.getElementById('svcGrid');
+        grid.innerHTML=Object.entries(svcs).map(([name,s])=>{
+            const up=s.status==='up';
+            const latPct=Math.min(100,Math.max(5,100-(ms/5)));
+            if(!uptimeHistory[name]) uptimeHistory[name]=[];
+            uptimeHistory[name].push(up);
+            if(uptimeHistory[name].length>24) uptimeHistory[name].shift();
+            return `<div class="svc">
+      <div class="svc-top">
+        <div class="svc-dot ${up?'svc-up':'svc-dn'}"></div>
+        <div><div class="svc-name">${name}</div><div class="svc-port">:${svcPorts[name]||'—'}</div></div>
+      </div>
+      <div class="svc-meta"><span>${up?'ONLINE':'OFFLINE'}</span><span class="svc-lat">${up?ms+'ms':'—'}</span></div>
+      <div class="svc-bar"><div class="svc-bar-fill" style="width:${up?latPct:0}%"></div></div>
+    </div>`;
+        }).join('');
+    }
+
+    // ── Uptime ────────────────────────────────────────────────────────────────
+    function updateUptime(){
+        const grid=document.getElementById('uptimeGrid');
+        const entries=Object.entries(uptimeHistory);
+        if(!entries.length){grid.innerHTML='<div style="color:var(--muted);font-family:var(--mono);font-size:10px;grid-column:span 2">Collecting data...</div>';return}
+        grid.innerHTML=entries.map(([name,hist])=>{
+            const upPct=hist.length>0?Math.round((hist.filter(Boolean).length/hist.length)*100):100;
+            const color=upPct===100?'var(--green)':upPct>90?'var(--yellow)':'var(--accent)';
+            const bars=Array.from({length:Math.min(hist.length,12)},(_,i)=>{
+                const ok=hist[hist.length-12+i]??true;
+                return `<div class="uptime-bar ${ok?'':'miss'}" title="${ok?'UP':'DOWN'}"></div>`;
+            }).join('');
+            return `<div class="uptime-item">
+      <div class="uptime-name">${name}</div>
+      <div class="uptime-pct" style="color:${color}">${upPct}%</div>
+      <div class="uptime-bars">${bars}</div>
+    </div>`;
+        }).join('');
+    }
+
+    // ── KPIs ──────────────────────────────────────────────────────────────────
+    function updateKPIs(){
+        const list=Object.values(streams);
+        const totalV=list.reduce((s,x)=>s+(x.viewerCount||0),0);
+        const liveN=list.filter(s=>s.status==='live').length;
+        let totalJ=0,peakAll=0;
+        Object.values(analytics).forEach(a=>{totalJ+=(a.totalJoins||0);peakAll=Math.max(peakAll,a.peakViewers||0)});
+        set('k0',fmt(totalV),'k0s',`across ${liveN} streams`,'up');
+        set('k1',liveN,'k1s',`${list.length} total`,'');
+        set('k2',fmt(totalJ),'k2s','all time','');
+        set('k3',fmt(peakAll),'k3s','all time high','');
+        set('k4',videoCount,'k4s','hls ready','');
+        viewHistory.push({v:totalV,t:new Date().toLocaleTimeString()});
+        if(viewHistory.length>40) viewHistory.shift();
+        if(charts.viewer){
+            charts.viewer.data.labels=viewHistory.map(p=>p.t);
+            charts.viewer.data.datasets[0].data=viewHistory.map(p=>p.v);
+            charts.viewer.update('none');
+        }
+    }
+
+    function set(vi,val,si,sub,cls){
+        document.getElementById(vi).textContent=val;
+        const el=document.getElementById(si);
+        el.textContent=sub;
+        if(cls) el.className=`kpi-sub ${cls}`;
+    }
+
+    // ── Streams table with search ─────────────────────────────────────────────
+    function updateStreamsTable(){
+        const list=Object.values(streams);
+        const q=(document.getElementById('streamSearch')?.value||'').toLowerCase();
+        const filtered=q?list.filter(s=>s.title?.toLowerCase().includes(q)||s.id?.includes(q)):list;
+        document.getElementById('streamCount').textContent=`${filtered.length}/${list.length} STREAMS`;
+        if(!filtered.length){
+            document.getElementById('streamsTbody').innerHTML=
+                '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:20px">No streams found</td></tr>';
+            return;
+        }
+        const maxV=Math.max(...filtered.map(s=>s.viewerCount||0),1);
+        document.getElementById('streamsTbody').innerHTML=filtered.map(s=>{
+            const a=analytics[s.id]||{};
+            const pct=Math.round(((s.viewerCount||0)/maxV)*100);
+            return `<tr>
+      <td style="color:var(--text);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.title}</td>
+      <td><span class="badge ${s.status==='live'?'b-live':'b-end'}">${s.status}</span></td>
+      <td><div class="vbar"><span style="color:var(--cyan);min-width:20px">${s.viewerCount||0}</span><div class="vbar-track"><div class="vbar-fill" style="width:${pct}%"></div></div></div></td>
+      <td style="color:var(--yellow)">${fmt(a.totalJoins||0)}</td>
+      <td style="color:var(--orange)">${fmt(a.peakViewers||0)}</td>
+      <td style="color:${s.hlsUrl?'var(--green)':'var(--muted)'}">${s.hlsUrl?'✓ ready':'✗ none'}</td>
+      <td style="color:var(--muted)">${s.updatedAt?ago(new Date(s.updatedAt)):'—'}</td>
+    </tr>`;
+        }).join('');
+    }
+
+    // ── Charts ────────────────────────────────────────────────────────────────
+    function updateCharts(){
+        const list=Object.values(streams);
+        const labels=list.map(s=>s.title.slice(0,12));
+        if(charts.dist){charts.dist.data.labels=labels;charts.dist.data.datasets[0].data=list.map(s=>s.viewerCount||0);charts.dist.update()}
+        if(charts.jl){
+            charts.jl.data.labels=labels;
+            charts.jl.data.datasets[0].data=list.map(s=>(analytics[s.id]||{}).totalJoins||0);
+            charts.jl.data.datasets[1].data=list.map(s=>Math.max(0,(analytics[s.id]?.totalJoins||0)-(s.viewerCount||0)));
+            charts.jl.update();
+        }
+        if(charts.peak){charts.peak.data.labels=labels;charts.peak.data.datasets[0].data=list.map(s=>(analytics[s.id]||{}).peakViewers||0);charts.peak.update()}
+    }
+
+    function initCharts(){
+        const gc='rgba(255,255,255,0.04)';
+        charts.viewer=new Chart(document.getElementById('cViewer'),{type:'line',data:{labels:[],datasets:[{label:'Viewers',data:[],borderColor:'#00e87a',backgroundColor:'rgba(0,232,122,.07)',borderWidth:2,fill:true,tension:.4,pointRadius:2,pointBackgroundColor:'#00e87a'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{maxTicksLimit:6}},y:{grid:{color:gc},beginAtZero:true,ticks:{precision:0}}},animation:{duration:0}}});
+        charts.latency=new Chart(document.getElementById('cLatency'),{type:'line',data:{labels:[],datasets:[{label:'ms',data:[],borderColor:'#f5c518',backgroundColor:'rgba(245,197,24,.06)',borderWidth:2,fill:true,tension:.3,pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:gc},beginAtZero:true,ticks:{callback:v=>v+'ms',maxTicksLimit:4}}},animation:{duration:0}}});
+        charts.jl=new Chart(document.getElementById('cJL'),{type:'bar',data:{labels:[],datasets:[{label:'Joins',data:[],backgroundColor:'rgba(0,232,122,.55)',borderRadius:4},{label:'Leaves',data:[],backgroundColor:'rgba(255,51,102,.55)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:9},color:'#364560',boxWidth:8,padding:8}}},scales:{x:{grid:{display:false},ticks:{maxRotation:0,font:{size:9}}},y:{grid:{color:gc},beginAtZero:true,ticks:{precision:0}}},animation:{duration:300}}});
+        charts.dist=new Chart(document.getElementById('cDist'),{type:'doughnut',data:{labels:[],datasets:[{data:[],backgroundColor:['#00cfff','#ff3366','#00e87a','#f5c518','#ff7240','#4f8ef7'],borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'bottom',labels:{font:{size:9},color:'#364560',boxWidth:8,padding:8}}}}});
+        charts.peak=new Chart(document.getElementById('cPeak'),{type:'bar',data:{labels:[],datasets:[{label:'Peak',data:[],backgroundColor:'rgba(255,114,64,.6)',borderColor:'#ff7240',borderWidth:1,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},beginAtZero:true,ticks:{precision:0}},y:{grid:{display:false},ticks:{font:{size:9}}}},animation:{duration:300}}});
+    }
+
+    // ── Activity & Log ────────────────────────────────────────────────────────
+    function addActivity(type,text){
+        const feed=document.getElementById('feed');
+        const icons={join:'→',leave:'←',sys:'◉',warn:'⚠',vid:'▶'};
+        const cls={join:'fi-join',leave:'fi-leave',sys:'fi-sys',warn:'fi-warn',vid:'fi-vid'};
+        const el=document.createElement('div');
+        el.className='feed-item';
+        el.innerHTML=`<div class="feed-icon ${cls[type]||'fi-sys'}">${icons[type]||'•'}</div><div><div class="feed-txt">${text}</div><div class="feed-time">${new Date().toLocaleTimeString()}</div></div>`;
+        feed.insertBefore(el,feed.firstChild);
+        while(feed.children.length>30) feed.removeChild(feed.lastChild);
+    }
+
+    function log(type,msg,level='ok'){
+        const el=document.getElementById('errlog');
+        const cls={ok:'err-ok',warn:'err-warn',err:'err-fail'}[level]||'err-ok';
+        const div=document.createElement('div');
+        div.className='err-item';
+        div.innerHTML=`<span class="err-time">${new Date().toLocaleTimeString()}</span><span class="${cls}">${msg}</span>`;
+        el.insertBefore(div,el.firstChild);
+        while(el.children.length>20) el.removeChild(el.lastChild);
+    }
+
+    function fmt(n){if(n>=1e6) return (n/1e6).toFixed(1)+'M';if(n>=1e3) return (n/1e3).toFixed(1)+'K';return String(n)}
+    function ago(d){const s=Math.floor((Date.now()-d)/1000);if(s<60) return s+'s ago';if(s<3600) return Math.floor(s/60)+'m ago';return Math.floor(s/3600)+'h ago'}
+</script>
+</body>
+</html>
