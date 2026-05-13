@@ -12,14 +12,14 @@ RUN go mod download
 
 COPY . .
 
-# Build all binaries and set execute permission in builder stage
-RUN go build -o /bin/user-service         ./services/user/main.go         && chmod +x /bin/user-service
-RUN go build -o /bin/stream-service       ./services/stream/main.go       && chmod +x /bin/stream-service
-RUN go build -o /bin/analytics-service    ./services/analytics/main.go    && chmod +x /bin/analytics-service
-RUN go build -o /bin/notification-service ./services/notification/main.go && chmod +x /bin/notification-service
-RUN go build -o /bin/admin-service        ./services/admin/main.go        && chmod +x /bin/admin-service
-RUN go build -o /bin/video-service        ./services/video/main.go        && chmod +x /bin/video-service
-RUN go build -o /bin/gateway              ./gateway/main.go               && chmod +x /bin/gateway
+# Build package directories (not single files) so multi-file packages compile
+RUN go build -o /bin/user-service         ./services/user/         && chmod +x /bin/user-service
+RUN go build -o /bin/stream-service       ./services/stream/       && chmod +x /bin/stream-service
+RUN go build -o /bin/analytics-service    ./services/analytics/    && chmod +x /bin/analytics-service
+RUN go build -o /bin/notification-service ./services/notification/ && chmod +x /bin/notification-service
+RUN go build -o /bin/admin-service        ./services/admin/        && chmod +x /bin/admin-service
+RUN go build -o /bin/video-service        ./services/video/        && chmod +x /bin/video-service
+RUN go build -o /bin/gateway              ./gateway/               && chmod +x /bin/gateway
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────
 FROM alpine:latest
