@@ -442,6 +442,9 @@ func main() {
 	protected.HandleFunc("/streams/{id}/leave", h.leaveStream).Methods(http.MethodPost)
 	protected.HandleFunc("/streams/{id}/manifest", h.getManifest).Methods(http.MethodGet)
 	protected.HandleFunc("/streams/{id}/reset-viewers", h.resetViewerCount).Methods(http.MethodPost)
+	protected.HandleFunc("/streams/{id}/chat", h.getChatHistory).Methods(http.MethodGet)
+	protected.HandleFunc("/streams/{id}/chat", h.sendChatMessage).Methods(http.MethodPost)
+	protected.HandleFunc("/streams/{id}/chat/{msgId}", h.deleteChatMessage).Methods(http.MethodDelete)
 
 	log.Printf("stream-service listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, r); err != nil {
