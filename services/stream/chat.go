@@ -37,13 +37,18 @@ func (h *handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 	streamID := mux.Vars(r)["id"]
 	uid, _ := middleware.UIDFromContext(r.Context())
 
+	log.Printf("chat: sendChatMessage streamId=%s uid=%s", streamID, uid)
+
 	var req SendChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("chat: decode error: %v", err)
 		jsonError(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	text := strings.TrimSpace(req.Text)
+	log.Printf("chat: text='%s' len=%d", text, len([]rune(text)))
+
 	if text == "" {
 		jsonError(w, "message cannot be empty", http.StatusBadRequest)
 		return
@@ -53,13 +58,16 @@ func (h *handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check stream
 	snap, err := h.fs.Collection("streams").Doc(streamID).Get(r.Context())
 	if err != nil {
+		log.Printf("chat: stream not found streamId=%s err=%v", streamID, err)
 		jsonError(w, "stream not found", http.StatusNotFound)
 		return
 	}
 	var s Stream
 	snap.DataTo(&s)
+	log.Printf("chat: stream status=%s", s.Status)
 	if s.Status != "live" {
 		jsonError(w, "stream is not live", http.StatusGone)
 		return
@@ -67,6 +75,7 @@ func (h *handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 
 	name := getSenderName(r.Context(), h.fs, uid)
 	role := h.getUserRole(r.Context(), uid)
+	log.Printf("chat: sender name=%s role=%s", name, role)
 
 	msg := ChatMessage{
 		UID:       uid,
@@ -76,6 +85,11 @@ func (h *handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 		Role:      role,
 	}
 
+	// Check env vars
+	secret := os.Getenv("RTDB_SECRET")
+	rtdbURL := util.Getenv("RTDB_URL", "https://sports-stream-66553-default-rtdb.europe-west1.firebasedatabase.app")
+	log.Printf("chat: RTDB_URL=%s RTDB_SECRET set=%v", rtdbURL, secret != "")
+
 	msgID, err := writeToRealtimeDB(r.Context(), streamID, msg)
 	if err != nil {
 		log.Printf("chat: realtime DB write failed streamId=%s: %v", streamID, err)
@@ -83,7 +97,7 @@ func (h *handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("chat: message sent streamId=%s uid=%s msgId=%s", streamID, uid, msgID)
+	log.Printf("chat: ✅ message sent streamId=%s uid=%s msgId=%s", streamID, uid, msgID)
 	jsonOK(w, map[string]any{
 		"msgId":     msgID,
 		"streamId":  streamID,
@@ -95,6 +109,7 @@ func (h *handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) getChatHistory(w http.ResponseWriter, r *http.Request) {
 	streamID := mux.Vars(r)["id"]
+	log.Printf("chat: getChatHistory streamId=%s", streamID)
 
 	messages, err := readChatHistory(r.Context(), streamID, 50)
 	if err != nil {
@@ -103,6 +118,7 @@ func (h *handler) getChatHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("chat: history returned %d messages", len(messages))
 	jsonOK(w, messages)
 }
 
@@ -128,20 +144,22 @@ func (h *handler) deleteChatMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── Realtime DB helpers ───────────────────────────────────────────────────────
-// Uses RTDB_SECRET env var — avoids OAuth2 scope issues entirely.
-// Get secret: Firebase Console → Project Settings → Service Accounts → Database Secrets
 
 func rtdbEndpoint(path string) string {
 	dbURL := util.Getenv("RTDB_URL", "https://sports-stream-66553-default-rtdb.europe-west1.firebasedatabase.app")
 	secret := os.Getenv("RTDB_SECRET")
 	if secret != "" {
-		return fmt.Sprintf("%s/%s.json?auth=%s", dbURL, path, secret)
+		endpoint := fmt.Sprintf("%s/%s.json?auth=%s", dbURL, path, secret)
+		log.Printf("chat: rtdbEndpoint (with secret) path=%s", path)
+		return endpoint
 	}
+	log.Printf("chat: rtdbEndpoint (NO SECRET) path=%s — will likely get 401", path)
 	return fmt.Sprintf("%s/%s.json", dbURL, path)
 }
 
 func writeToRealtimeDB(ctx context.Context, streamID string, msg ChatMessage) (string, error) {
 	endpoint := rtdbEndpoint(fmt.Sprintf("chats/%s/messages", streamID))
+	log.Printf("chat: writeToRealtimeDB endpoint=%s", endpoint)
 
 	body, _ := json.Marshal(msg)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
@@ -152,20 +170,23 @@ func writeToRealtimeDB(ctx context.Context, streamID string, msg ChatMessage) (s
 
 	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
 	if err != nil {
+		log.Printf("chat: HTTP error: %v", err)
 		return "", err
 	}
 	defer resp.Body.Close()
 
+	respBody, _ := io.ReadAll(resp.Body)
+	log.Printf("chat: RTDB response status=%d body=%s", resp.StatusCode, string(respBody))
+
 	if resp.StatusCode >= 400 {
-		b, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("realtime DB %d: %s", resp.StatusCode, string(b))
+		return "", fmt.Errorf("realtime DB %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	var result map[string]string
-	json.NewDecoder(resp.Body).Decode(&result)
+	json.Unmarshal(respBody, &result)
 	msgID, ok := result["name"]
 	if !ok || msgID == "" {
-		return "", fmt.Errorf("no push ID in response")
+		return "", fmt.Errorf("no push ID in response: %s", string(respBody))
 	}
 	return msgID, nil
 }
@@ -177,6 +198,7 @@ func readChatHistory(ctx context.Context, streamID string, limit int) ([]map[str
 		"%s/chats/%s/messages.json?orderBy=\"timestamp\"&limitToLast=%d&auth=%s",
 		dbURL, streamID, limit, secret,
 	)
+	log.Printf("chat: readChatHistory endpoint=%s", endpoint)
 
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
@@ -212,6 +234,7 @@ func deleteChatMsg(ctx context.Context, streamID, msgID string) error {
 func getSenderName(ctx context.Context, fs *firestore.Client, uid string) string {
 	snap, err := fs.Collection("users").Doc(uid).Get(ctx)
 	if err != nil {
+		log.Printf("chat: getSenderName failed uid=%s: %v", uid, err)
 		return "Anonymous"
 	}
 	var u struct {
