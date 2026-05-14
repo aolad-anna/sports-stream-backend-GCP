@@ -7,7 +7,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <style>
-        /* ── DARK THEME (default) ─────────────────────────────────────────── */
         :root {
             --bg:#04060f;--panel:#080c1a;--panel2:#0b1020;
             --border:rgba(255,255,255,0.055);
@@ -17,10 +16,7 @@
             --mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
             --shadow:rgba(0,0,0,.4);
             --chart-grid:rgba(255,255,255,0.04);
-            --chart-tick:#364560;
         }
-
-        /* ── LIGHT THEME ──────────────────────────────────────────────────── */
         [data-theme="light"] {
             --bg:#f0f4ff;--panel:#ffffff;--panel2:#f5f7ff;
             --border:rgba(0,0,40,0.1);
@@ -29,21 +25,14 @@
             --text:#0f172a;--muted:#64748b;
             --shadow:rgba(0,0,0,.08);
             --chart-grid:rgba(0,0,0,0.06);
-            --chart-tick:#64748b;
         }
-
         *{margin:0;padding:0;box-sizing:border-box}
         html{scroll-behavior:smooth}
         body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
-
-        /* light theme body effects */
         [data-theme="dark"] body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 15% 15%,rgba(255,51,102,.035) 0%,transparent 55%),radial-gradient(ellipse 60% 50% at 85% 85%,rgba(79,142,247,.03) 0%,transparent 55%);pointer-events:none;z-index:0}
-        [data-theme="dark"] body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.025) 3px,rgba(0,0,0,.025) 4px);pointer-events:none;z-index:0}
-        [data-theme="light"] body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 15% 15%,rgba(37,99,235,.04) 0%,transparent 55%),radial-gradient(ellipse 60% 50% at 85% 85%,rgba(124,58,237,.03) 0%,transparent 55%);pointer-events:none;z-index:0}
-
+        [data-theme="light"] body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 15% 15%,rgba(37,99,235,.04) 0%,transparent 55%);pointer-events:none;z-index:0}
         .wrap{position:relative;z-index:1}
 
-        /* ── HEADER ──────────────────────────────────────────────────── */
         header{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;border-bottom:1px solid var(--border);background:rgba(4,6,15,.85);backdrop-filter:blur(24px);position:sticky;top:0;z-index:100;transition:background .3s}
         [data-theme="light"] header{background:rgba(255,255,255,.9)}
         .brand{display:flex;align-items:center;gap:14px}
@@ -57,15 +46,11 @@
         .hdr-time{font-family:var(--mono);font-size:11px;color:var(--muted)}
         .hdr-btn{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:7px 15px;font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;transition:.2s;letter-spacing:1px}
         .hdr-btn:hover{border-color:var(--cyan);color:var(--cyan)}
-
-        /* ── THEME TOGGLE ────────────────────────────────────────────── */
         .theme-toggle{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:.2s;flex-shrink:0}
         .theme-toggle:hover{border-color:var(--cyan)}
 
-        /* ── MAIN ─────────────────────────────────────────────────────── */
         main{padding:24px 28px;display:flex;flex-direction:column;gap:22px}
 
-        /* ── KPI STRIP ────────────────────────────────────────────────── */
         .kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:14px}
         .kpi{background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:18px 16px;position:relative;overflow:hidden;transition:.2s;box-shadow:0 2px 8px var(--shadow)}
         .kpi:hover{transform:translateY(-2px);border-color:rgba(127,127,255,.2);box-shadow:0 6px 20px var(--shadow)}
@@ -76,13 +61,11 @@
         .kpi-sub.up{color:var(--green)}.kpi-sub.dn{color:var(--accent)}
         .kpi-ico{position:absolute;top:14px;right:14px;font-size:18px;opacity:.25}
 
-        /* ── ROWS ─────────────────────────────────────────────────────── */
         .row{display:grid;gap:18px}
         .row-3{grid-template-columns:2fr 1fr 1fr}
         .row-4{grid-template-columns:1fr 1fr 1fr 1fr}
         .row-2{grid-template-columns:1.6fr 1fr}
 
-        /* ── PANEL ────────────────────────────────────────────────────── */
         .panel{background:var(--panel);border:1px solid var(--border);border-radius:15px;padding:22px;box-shadow:0 2px 8px var(--shadow);transition:background .3s,border-color .3s}
         .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
         .pt{font-size:13px;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;gap:9px}
@@ -91,7 +74,6 @@
         .ch{position:relative;height:200px}
         .ch-sm{position:relative;height:150px}
 
-        /* ── SERVICE HEALTH ───────────────────────────────────────────── */
         .server-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
         .svc{background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:16px;display:flex;flex-direction:column;gap:8px;transition:.2s}
         .svc:hover{border-color:rgba(0,207,255,.3);transform:translateY(-1px)}
@@ -106,7 +88,6 @@
         .svc-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
         .svc-bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--green),var(--cyan));transition:width .5s}
 
-        /* ── INSTANCES ───────────────────────────────────────────────── */
         .instances-wrap{display:flex;flex-direction:column;gap:8px}
         .inst-row{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 16px}
         .inst-id{font-family:var(--mono);font-size:11px;color:var(--cyan);flex:1}
@@ -116,7 +97,6 @@
         .inst-bar-wrap{width:80px;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
         .inst-bar-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--purple));border-radius:2px}
 
-        /* ── UPTIME ──────────────────────────────────────────────────── */
         .uptime-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
         .uptime-item{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px}
         .uptime-name{font-family:var(--mono);font-size:11px;color:var(--text);margin-bottom:6px}
@@ -125,7 +105,6 @@
         .uptime-bar{flex:1;height:20px;border-radius:3px;background:var(--green);opacity:.8}
         .uptime-bar.miss{background:var(--accent);opacity:.6}
 
-        /* ── TABLE ───────────────────────────────────────────────────── */
         table{width:100%;border-collapse:collapse}
         th{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
         td{padding:11px 10px;font-family:var(--mono);font-size:11px;border-bottom:1px solid var(--border);vertical-align:middle;opacity:.9}
@@ -138,7 +117,6 @@
         .vbar-track{width:60px;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
         .vbar-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--blue));border-radius:2px;transition:width .5s}
 
-        /* ── ACTIVITY ────────────────────────────────────────────────── */
         .feed{display:flex;flex-direction:column;gap:0;max-height:280px;overflow-y:auto}
         .feed-item{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);animation:fadein .3s ease}
         [data-theme="dark"] .feed-item{border-bottom:1px solid rgba(255,255,255,.025)}
@@ -149,25 +127,45 @@
         .feed-txt{font-size:11px;color:var(--text);margin-bottom:2px}
         .feed-time{font-family:var(--mono);font-size:9px;color:var(--muted)}
 
-        /* ── EVENT LOG ───────────────────────────────────────────────── */
         .errlog{font-family:var(--mono);font-size:11px;max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
         .err-item{display:flex;gap:10px;padding:6px 10px;border-radius:7px;background:var(--panel2)}
         .err-time{color:var(--muted);flex-shrink:0}
         .err-ok{color:var(--green)}.err-warn{color:var(--yellow)}.err-fail{color:var(--accent)}
 
-        /* ── VIDEO STATS ─────────────────────────────────────────────── */
         .video-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
         .vstat{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
         .vstat-val{font-size:22px;font-weight:800;margin-bottom:4px}
         .vstat-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
 
-        /* ── SEARCH BAR ──────────────────────────────────────────────── */
         .search-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
         .search-input{flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-family:var(--mono);font-size:11px;color:var(--text);outline:none;transition:border-color .2s}
         .search-input:focus{border-color:var(--cyan)}
         .search-input::placeholder{color:var(--muted)}
 
-        /* ── SCROLLBAR ───────────────────────────────────────────────── */
+        /* ── CHAT MONITOR ───────────────────────────────────────────────── */
+        .chat-panel{display:flex;flex-direction:column;height:100%}
+        .chat-stream-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+        .chat-tab{background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:5px 12px;font-family:var(--mono);font-size:9px;color:var(--muted);cursor:pointer;transition:.2s;letter-spacing:1px;white-space:nowrap}
+        .chat-tab:hover{border-color:var(--cyan);color:var(--cyan)}
+        .chat-tab.active{background:rgba(255,51,102,.1);border-color:var(--accent);color:var(--accent)}
+        .chat-messages{flex:1;overflow-y:auto;max-height:260px;display:flex;flex-direction:column;gap:0}
+        .chat-msg{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.03);animation:fadein .2s ease}
+        .chat-avatar{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;font-family:var(--mono)}
+        .chat-body{flex:1;min-width:0}
+        .chat-header{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+        .chat-name{font-family:var(--mono);font-size:10px;font-weight:700}
+        .chat-role{font-family:var(--mono);font-size:8px;padding:1px 6px;border-radius:4px;letter-spacing:1px}
+        .role-broadcaster{background:rgba(255,51,102,.15);color:var(--accent);border:1px solid rgba(255,51,102,.3)}
+        .role-admin{background:rgba(245,197,24,.15);color:var(--yellow);border:1px solid rgba(245,197,24,.3)}
+        .role-viewer{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid rgba(255,255,255,.08)}
+        .chat-text{font-size:11px;color:var(--text);opacity:.9;word-break:break-word}
+        .chat-time{font-family:var(--mono);font-size:9px;color:var(--muted);flex-shrink:0;margin-top:2px}
+        .chat-empty{font-family:var(--mono);font-size:10px;color:var(--muted);padding:20px 0;text-align:center}
+        .chat-stats-row{display:flex;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+        .chat-stat{flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+        .chat-stat-val{font-size:18px;font-weight:800;margin-bottom:2px}
+        .chat-stat-lbl{font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+
         ::-webkit-scrollbar{width:3px;height:3px}
         ::-webkit-scrollbar-thumb{background:var(--muted);border-radius:2px}
         ::-webkit-scrollbar-track{background:transparent}
@@ -216,7 +214,7 @@
             <div class="kpi" style="--c:var(--orange)"><div class="kpi-ico">📈</div><div class="kpi-lbl">Peak Viewers</div><div class="kpi-val" id="k3">—</div><div class="kpi-sub" id="k3s">all time</div></div>
             <div class="kpi" style="--c:var(--blue)"><div class="kpi-ico">🎬</div><div class="kpi-lbl">Videos Ready</div><div class="kpi-val" id="k4">—</div><div class="kpi-sub" id="k4s">—</div></div>
             <div class="kpi" style="--c:var(--accent)"><div class="kpi-ico">⚡</div><div class="kpi-lbl">API Latency</div><div class="kpi-val" id="k5">—</div><div class="kpi-sub" id="k5s">gateway</div></div>
-            <div class="kpi" style="--c:var(--purple)"><div class="kpi-ico">🖥</div><div class="kpi-lbl">Instances</div><div class="kpi-val" id="k6">—</div><div class="kpi-sub" id="k6s">cloud run</div></div>
+            <div class="kpi" style="--c:var(--purple)"><div class="kpi-ico">💬</div><div class="kpi-lbl">Chat Messages</div><div class="kpi-val" id="k8">—</div><div class="kpi-sub" id="k8s">all streams</div></div>
             <div class="kpi" style="--c:var(--green)"><div class="kpi-ico">✓</div><div class="kpi-lbl">Uptime</div><div class="kpi-val" id="k7">—</div><div class="kpi-sub" id="k7s">services</div></div>
         </div>
 
@@ -270,7 +268,7 @@
             </div>
         </div>
 
-        <!-- ROW 3: NEW — Video Stats -->
+        <!-- ROW 3: Video stats + Uptime -->
         <div class="row row-4">
             <div class="panel" style="grid-column:span 2">
                 <div class="ph">
@@ -301,7 +299,6 @@
                     <div class="pt"><span class="d" style="--dc:var(--cyan)"></span>STREAM REGISTRY</div>
                     <div class="pm" id="streamCount">—</div>
                 </div>
-                <!-- NEW: search bar -->
                 <div class="search-bar">
                     <input class="search-input" id="streamSearch" placeholder="Search streams..." oninput="updateStreamsTable()">
                 </div>
@@ -336,6 +333,71 @@
             </div>
         </div>
 
+        <!-- ── ROW 5: LIVE CHAT MONITOR ─────────────────────────────────── -->
+        <div class="row" style="grid-template-columns:1fr 1fr">
+
+            <!-- Chat Monitor -->
+            <div class="panel">
+                <div class="ph">
+                    <div class="pt"><span class="d" style="--dc:var(--purple)"></span>LIVE CHAT MONITOR</div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <div class="pm" id="chatTotalLabel">0 MESSAGES</div>
+                        <button class="hdr-btn" onclick="clearChatDisplay()" style="padding:4px 10px;font-size:9px">CLEAR</button>
+                    </div>
+                </div>
+                <!-- Stream selector tabs -->
+                <div class="chat-stream-tabs" id="chatTabs">
+                    <div class="chat-tab active" onclick="selectChatStream('all',this)">ALL STREAMS</div>
+                </div>
+                <!-- Messages -->
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-empty">No chat messages yet.<br>Messages appear here in real-time.</div>
+                </div>
+                <!-- Stats row -->
+                <div class="chat-stats-row">
+                    <div class="chat-stat">
+                        <div class="chat-stat-val" id="csMsgs" style="color:var(--purple)">0</div>
+                        <div class="chat-stat-lbl">Total Msgs</div>
+                    </div>
+                    <div class="chat-stat">
+                        <div class="chat-stat-val" id="csUsers" style="color:var(--cyan)">0</div>
+                        <div class="chat-stat-lbl">Unique Users</div>
+                    </div>
+                    <div class="chat-stat">
+                        <div class="chat-stat-val" id="csRate" style="color:var(--green)">0</div>
+                        <div class="chat-stat-lbl">Msgs/Min</div>
+                    </div>
+                    <div class="chat-stat">
+                        <div class="chat-stat-val" id="csStreams" style="color:var(--orange)">0</div>
+                        <div class="chat-stat-lbl">Active Chats</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Analytics -->
+            <div style="display:flex;flex-direction:column;gap:18px">
+                <!-- Message rate chart -->
+                <div class="panel">
+                    <div class="ph">
+                        <div class="pt"><span class="d" style="--dc:var(--purple)"></span>MESSAGE RATE</div>
+                        <div class="pm">MSGS/MIN OVER TIME</div>
+                    </div>
+                    <div class="ch-sm"><canvas id="cChatRate"></canvas></div>
+                </div>
+
+                <!-- Top chatters -->
+                <div class="panel">
+                    <div class="ph">
+                        <div class="pt"><span class="d" style="--dc:var(--cyan)"></span>TOP CHATTERS</div>
+                        <div class="pm">BY MESSAGE COUNT</div>
+                    </div>
+                    <div id="topChatters" style="display:flex;flex-direction:column;gap:6px">
+                        <div style="color:var(--muted);font-family:var(--mono);font-size:10px;text-align:center;padding:16px 0">No chat data yet</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
 </div>
 
@@ -344,8 +406,27 @@
         ? 'https://sports-stream-backend-staging-166817872169.europe-west2.run.app'
         : window.location.origin;
 
+    // Firebase Realtime DB URL
+    const RTDB_URL = 'https://sports-stream-66553-default-rtdb.europe-west1.firebasedatabase.app';
+
     let streams={},analytics={},videoCount=0,allVideos=[];
     let latHistory=[],viewHistory=[],uptimeHistory={},charts={};
+
+    // ── Chat state ────────────────────────────────────────────────────────────
+    let chatData = {};          // { streamId: [{msgId, uid, name, text, timestamp, role}] }
+    let chatListeners = {};     // { streamId: EventSource }
+    let selectedChatStream = 'all';
+    let chatRateHistory = [];
+    let msgCountLastMin = 0;
+    let chatRateInterval = null;
+
+    // Avatar color palette
+    const AVATAR_COLORS = ['#4f8ef7','#00e87a','#ff7240','#a78bfa','#00cfff','#ff3366','#f5c518'];
+    function avatarColor(name) {
+        let h = 0;
+        for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+        return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+    }
 
     // ── Theme ─────────────────────────────────────────────────────────────────
     function toggleTheme(){
@@ -354,37 +435,28 @@
         html.setAttribute('data-theme',isDark?'light':'dark');
         document.getElementById('themeBtn').textContent=isDark?'🌙':'☀️';
         localStorage.setItem('ss_theme',isDark?'light':'dark');
-        // Update chart colors
-        const gc=isDark?'rgba(0,0,0,0.06)':'rgba(0,0,0,0.06)';
-        Chart.defaults.color=isDark?'#64748b':'#364560';
-        Chart.defaults.borderColor=isDark?'rgba(0,0,0,0.06)':'rgba(255,255,255,0.045)';
         Object.values(charts).forEach(c=>{if(c)c.update()});
     }
-
-    // Load saved theme
     (()=>{
         const saved=localStorage.getItem('ss_theme')||'dark';
         document.documentElement.setAttribute('data-theme',saved);
-        setTimeout(()=>{
-            document.getElementById('themeBtn').textContent=saved==='dark'?'🌙':'☀️';
-        },0);
+        setTimeout(()=>{document.getElementById('themeBtn').textContent=saved==='dark'?'🌙':'☀️';},0);
     })();
 
-    // ── Clock ─────────────────────────────────────────────────────────────────
     setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString()},1000);
 
-    // ── Chart defaults ────────────────────────────────────────────────────────
     Chart.defaults.color='#364560';
     Chart.defaults.borderColor='rgba(255,255,255,0.045)';
     Chart.defaults.font.family="'Space Mono',monospace";
     Chart.defaults.font.size=10;
 
-    // ── Init ──────────────────────────────────────────────────────────────────
     window.onload=()=>{
         initCharts();
         loadAll();
         setInterval(loadAll,10000);
         setInterval(measureLatency,5000);
+        // Chat rate tracker — updates every 60s
+        chatRateInterval = setInterval(updateChatRate, 10000);
         log('sys','Dashboard initialised','ok');
         addActivity('sys','Dashboard connected');
     };
@@ -392,6 +464,7 @@
     async function loadAll(){
         await Promise.all([loadStreams(),loadVideos(),loadInstances()]);
         updateKPIs();updateStreamsTable();updateCharts();updateUptime();updateVideoStats();
+        updateChatTabs();
     }
 
     async function loadStreams(){
@@ -403,6 +476,8 @@
                 streams={};
                 list.forEach(s=>streams[s.id]=s);
                 await Promise.all(list.map(s=>loadAnalytics(s.id)));
+                // Subscribe to chat for each live stream
+                list.filter(s=>s.status==='live').forEach(s=>subscribeChatStream(s.id));
             }
         }catch(e){log('sys','Stream fetch failed','err')}
     }
@@ -419,11 +494,177 @@
         try{
             const r=await fetch(`${API}/api/v1/videos`);
             const d=await r.json();
-            if(d.success){
-                allVideos=d.data||[];
-                videoCount=allVideos.filter(v=>v.status==='ready'||v.hlsUrl).length;
-            }
+            if(d.success){allVideos=d.data||[];videoCount=allVideos.filter(v=>v.status==='ready'||v.hlsUrl).length;}
         }catch{}
+    }
+
+    // ── Chat: Firebase Realtime DB polling ────────────────────────────────────
+    // Poll RTDB REST endpoint every 5s for each live stream
+    async function subscribeChatStream(streamId) {
+        if (chatListeners[streamId]) return; // already listening
+        chatData[streamId] = chatData[streamId] || [];
+        chatListeners[streamId] = true;
+        pollChatStream(streamId);
+        // Poll every 5s
+        chatListeners[streamId] = setInterval(() => pollChatStream(streamId), 5000);
+    }
+
+    async function pollChatStream(streamId) {
+        try {
+            const url = `${RTDB_URL}/chats/${streamId}/messages.json?orderBy="timestamp"&limitToLast=50`;
+            const r = await fetch(url);
+            if (!r.ok) return;
+            const raw = await r.json();
+            if (!raw) return;
+
+            const msgs = Object.entries(raw).map(([msgId, v]) => ({
+                msgId, uid: v.uid||'', name: v.name||'User',
+                text: v.text||'', timestamp: v.timestamp||0, role: v.role||'viewer'
+            })).sort((a,b) => a.timestamp - b.timestamp);
+
+            const prev = chatData[streamId] || [];
+            const newMsgs = msgs.filter(m => !prev.some(p => p.msgId === m.msgId));
+
+            chatData[streamId] = msgs;
+
+            if (newMsgs.length > 0) {
+                msgCountLastMin += newMsgs.length;
+                newMsgs.forEach(m => {
+                    addActivity('join', `💬 ${m.name}: ${m.text.slice(0,40)}${m.text.length>40?'…':''}`);
+                });
+                renderChatMessages();
+                updateChatStats();
+            }
+        } catch(e) {}
+    }
+
+    // ── Chat tabs ─────────────────────────────────────────────────────────────
+    function updateChatTabs() {
+        const tabsEl = document.getElementById('chatTabs');
+        const liveStreams = Object.values(streams).filter(s => s.status === 'live');
+
+        // Keep ALL tab + add live stream tabs
+        let html = `<div class="chat-tab ${selectedChatStream==='all'?'active':''}" onclick="selectChatStream('all',this)">ALL STREAMS</div>`;
+        liveStreams.forEach(s => {
+            const active = selectedChatStream === s.id ? 'active' : '';
+            const count = (chatData[s.id] || []).length;
+            html += `<div class="chat-tab ${active}" onclick="selectChatStream('${s.id}',this)">${s.title.slice(0,14).toUpperCase()} ${count>0?`<span style="color:var(--purple)">(${count})</span>`:''}
+            </div>`;
+        });
+        tabsEl.innerHTML = html;
+    }
+
+    function selectChatStream(streamId, el) {
+        selectedChatStream = streamId;
+        document.querySelectorAll('.chat-tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        renderChatMessages();
+    }
+
+    function renderChatMessages() {
+        const el = document.getElementById('chatMessages');
+        let msgs = [];
+
+        if (selectedChatStream === 'all') {
+            Object.entries(chatData).forEach(([sid, ms]) => {
+                ms.forEach(m => msgs.push({...m, streamId: sid}));
+            });
+            msgs.sort((a,b) => b.timestamp - a.timestamp);
+            msgs = msgs.slice(0, 100);
+        } else {
+            msgs = (chatData[selectedChatStream] || []).slice().reverse().slice(0, 100);
+        }
+
+        if (!msgs.length) {
+            el.innerHTML = '<div class="chat-empty">No messages yet for this stream.</div>';
+            return;
+        }
+
+        el.innerHTML = msgs.map(m => {
+            const color = avatarColor(m.name);
+            const initial = (m.name[0] || '?').toUpperCase();
+            const roleClass = m.role === 'broadcaster' ? 'role-broadcaster' : m.role === 'admin' ? 'role-admin' : 'role-viewer';
+            const roleLabel = m.role === 'broadcaster' ? '📡 LIVE' : m.role === 'admin' ? '⚡ MOD' : 'VIEWER';
+            const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : '';
+            const streamName = m.streamId && streams[m.streamId] ? ` · ${streams[m.streamId].title.slice(0,12)}` : '';
+            return `<div class="chat-msg">
+                <div class="chat-avatar" style="background:${color}">${initial}</div>
+                <div class="chat-body">
+                    <div class="chat-header">
+                        <span class="chat-name" style="color:${color}">${escHtml(m.name)}</span>
+                        <span class="chat-role ${roleClass}">${roleLabel}</span>
+                        ${m.streamId&&selectedChatStream==='all'?`<span style="font-family:var(--mono);font-size:8px;color:var(--muted)">${escHtml(streamName)}</span>`:''}
+                    </div>
+                    <div class="chat-text">${escHtml(m.text)}</div>
+                </div>
+                <div class="chat-time">${time}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function updateChatStats() {
+        const allMsgs = Object.values(chatData).flat();
+        const totalMsgs = allMsgs.length;
+        const uniqueUsers = new Set(allMsgs.map(m => m.uid)).size;
+        const activeStreams = Object.keys(chatData).filter(id => chatData[id].length > 0).length;
+
+        document.getElementById('csMsgs').textContent = fmt(totalMsgs);
+        document.getElementById('csUsers').textContent = fmt(uniqueUsers);
+        document.getElementById('csStreams').textContent = activeStreams;
+        document.getElementById('k8').textContent = fmt(totalMsgs);
+        document.getElementById('k8s').textContent = `${activeStreams} active`;
+        document.getElementById('chatTotalLabel').textContent = `${totalMsgs} MESSAGES`;
+
+        // Top chatters
+        const userCounts = {};
+        allMsgs.forEach(m => {
+            if (!userCounts[m.uid]) userCounts[m.uid] = {name: m.name, count: 0, role: m.role};
+            userCounts[m.uid].count++;
+        });
+        const sorted = Object.values(userCounts).sort((a,b) => b.count - a.count).slice(0,5);
+        const topEl = document.getElementById('topChatters');
+        if (sorted.length) {
+            const maxC = sorted[0].count;
+            topEl.innerHTML = sorted.map((u,i) => {
+                const color = avatarColor(u.name);
+                const pct = Math.round((u.count/maxC)*100);
+                return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+                    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);width:14px">${i+1}</div>
+                    <div style="width:20px;height:20px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0">${u.name[0].toUpperCase()}</div>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-family:var(--mono);font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(u.name)}</div>
+                        <div style="height:3px;background:var(--border);border-radius:2px;margin-top:3px;overflow:hidden">
+                            <div style="height:100%;width:${pct}%;background:${color};border-radius:2px;transition:width .5s"></div>
+                        </div>
+                    </div>
+                    <div style="font-family:var(--mono);font-size:10px;color:${color};flex-shrink:0">${u.count}</div>
+                </div>`;
+            }).join('');
+        }
+
+        updateChatTabs();
+    }
+
+    function updateChatRate() {
+        const rate = msgCountLastMin;
+        msgCountLastMin = 0;
+        document.getElementById('csRate').textContent = rate;
+        chatRateHistory.push({rate, t: new Date().toLocaleTimeString()});
+        if (chatRateHistory.length > 20) chatRateHistory.shift();
+        if (charts.chatRate) {
+            charts.chatRate.data.labels = chatRateHistory.map(p => p.t);
+            charts.chatRate.data.datasets[0].data = chatRateHistory.map(p => p.rate);
+            charts.chatRate.update('none');
+        }
+    }
+
+    function clearChatDisplay() {
+        document.getElementById('chatMessages').innerHTML =
+            '<div class="chat-empty">Chat display cleared. New messages will appear here.</div>';
+    }
+
+    function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
     // ── Video stats ───────────────────────────────────────────────────────────
@@ -436,7 +677,7 @@
         document.getElementById('vsTranscoding').textContent=trans;
     }
 
-    // ── Cloud Run instances ───────────────────────────────────────────────────
+    // ── Cloud Run ─────────────────────────────────────────────────────────────
     let instanceData={count:1,region:'europe-west2',minInst:1,maxInst:20};
 
     async function loadInstances(){
@@ -480,8 +721,7 @@
       <div style="font-size:22px;font-weight:800;color:var(--cyan)">AUTO</div>
       <div style="font-family:var(--mono);font-size:9px;color:var(--muted)">min ${instanceData.minInst}</div>
     </div>`;
-        document.getElementById('k6').textContent=count;
-        document.getElementById('k6s').textContent=instanceData.region;
+        document.getElementById('k6')&&(document.getElementById('k6').textContent=count);
     }
 
     // ── Latency ───────────────────────────────────────────────────────────────
@@ -526,17 +766,13 @@
             uptimeHistory[name].push(up);
             if(uptimeHistory[name].length>24) uptimeHistory[name].shift();
             return `<div class="svc">
-      <div class="svc-top">
-        <div class="svc-dot ${up?'svc-up':'svc-dn'}"></div>
-        <div><div class="svc-name">${name}</div><div class="svc-port">:${svcPorts[name]||'—'}</div></div>
-      </div>
+      <div class="svc-top"><div class="svc-dot ${up?'svc-up':'svc-dn'}"></div><div><div class="svc-name">${name}</div><div class="svc-port">:${svcPorts[name]||'—'}</div></div></div>
       <div class="svc-meta"><span>${up?'ONLINE':'OFFLINE'}</span><span class="svc-lat">${up?ms+'ms':'—'}</span></div>
       <div class="svc-bar"><div class="svc-bar-fill" style="width:${up?latPct:0}%"></div></div>
     </div>`;
         }).join('');
     }
 
-    // ── Uptime ────────────────────────────────────────────────────────────────
     function updateUptime(){
         const grid=document.getElementById('uptimeGrid');
         const entries=Object.entries(uptimeHistory);
@@ -548,11 +784,7 @@
                 const ok=hist[hist.length-12+i]??true;
                 return `<div class="uptime-bar ${ok?'':'miss'}" title="${ok?'UP':'DOWN'}"></div>`;
             }).join('');
-            return `<div class="uptime-item">
-      <div class="uptime-name">${name}</div>
-      <div class="uptime-pct" style="color:${color}">${upPct}%</div>
-      <div class="uptime-bars">${bars}</div>
-    </div>`;
+            return `<div class="uptime-item"><div class="uptime-name">${name}</div><div class="uptime-pct" style="color:${color}">${upPct}%</div><div class="uptime-bars">${bars}</div></div>`;
         }).join('');
     }
 
@@ -584,15 +816,14 @@
         if(cls) el.className=`kpi-sub ${cls}`;
     }
 
-    // ── Streams table with search ─────────────────────────────────────────────
+    // ── Streams table ─────────────────────────────────────────────────────────
     function updateStreamsTable(){
         const list=Object.values(streams);
         const q=(document.getElementById('streamSearch')?.value||'').toLowerCase();
         const filtered=q?list.filter(s=>s.title?.toLowerCase().includes(q)||s.id?.includes(q)):list;
         document.getElementById('streamCount').textContent=`${filtered.length}/${list.length} STREAMS`;
         if(!filtered.length){
-            document.getElementById('streamsTbody').innerHTML=
-                '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:20px">No streams found</td></tr>';
+            document.getElementById('streamsTbody').innerHTML='<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:20px">No streams found</td></tr>';
             return;
         }
         const maxV=Math.max(...filtered.map(s=>s.viewerCount||0),1);
@@ -632,6 +863,8 @@
         charts.jl=new Chart(document.getElementById('cJL'),{type:'bar',data:{labels:[],datasets:[{label:'Joins',data:[],backgroundColor:'rgba(0,232,122,.55)',borderRadius:4},{label:'Leaves',data:[],backgroundColor:'rgba(255,51,102,.55)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:9},color:'#364560',boxWidth:8,padding:8}}},scales:{x:{grid:{display:false},ticks:{maxRotation:0,font:{size:9}}},y:{grid:{color:gc},beginAtZero:true,ticks:{precision:0}}},animation:{duration:300}}});
         charts.dist=new Chart(document.getElementById('cDist'),{type:'doughnut',data:{labels:[],datasets:[{data:[],backgroundColor:['#00cfff','#ff3366','#00e87a','#f5c518','#ff7240','#4f8ef7'],borderWidth:0,hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'bottom',labels:{font:{size:9},color:'#364560',boxWidth:8,padding:8}}}}});
         charts.peak=new Chart(document.getElementById('cPeak'),{type:'bar',data:{labels:[],datasets:[{label:'Peak',data:[],backgroundColor:'rgba(255,114,64,.6)',borderColor:'#ff7240',borderWidth:1,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},beginAtZero:true,ticks:{precision:0}},y:{grid:{display:false},ticks:{font:{size:9}}}},animation:{duration:300}}});
+        // Chat rate chart
+        charts.chatRate=new Chart(document.getElementById('cChatRate'),{type:'line',data:{labels:[],datasets:[{label:'msgs/10s',data:[],borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.08)',borderWidth:2,fill:true,tension:.4,pointRadius:2,pointBackgroundColor:'#a78bfa'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{maxTicksLimit:5}},y:{grid:{color:gc},beginAtZero:true,ticks:{precision:0}}},animation:{duration:0}}});
     }
 
     // ── Activity & Log ────────────────────────────────────────────────────────

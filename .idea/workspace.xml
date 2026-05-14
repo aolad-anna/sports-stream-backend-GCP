@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="chat added">
+    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="add log in chat">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/stream/chat.go" beforeDir="false" afterPath="$PROJECT_DIR$/services/stream/chat.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/public/dashboard.html" beforeDir="false" afterPath="$PROJECT_DIR$/public/dashboard.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -242,7 +242,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="count fix and rest" />
     <MESSAGE value="needed file" />
     <MESSAGE value="change getaway" />
     <MESSAGE value="change" />
@@ -267,7 +266,8 @@
     <MESSAGE value="chat in player view" />
     <MESSAGE value="docker change" />
     <MESSAGE value="chat added" />
-    <option name="LAST_COMMIT_MESSAGE" value="chat added" />
+    <MESSAGE value="add log in chat" />
+    <option name="LAST_COMMIT_MESSAGE" value="add log in chat" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
