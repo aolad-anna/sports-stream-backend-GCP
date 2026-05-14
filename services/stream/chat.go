@@ -18,6 +18,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"github.com/gorilla/mux"
+	"golang.org/x/oauth2/google"
 
 	"sports-stream-backend/pkg/middleware"
 )
@@ -29,7 +30,7 @@ type ChatMessage struct {
 	Name      string `json:"name"`
 	Text      string `json:"text"`
 	Timestamp int64  `json:"timestamp"`
-	Role      string `json:"role"` // broadcaster, viewer, admin
+	Role      string `json:"role"`
 }
 
 type SendChatRequest struct {
@@ -37,20 +38,17 @@ type SendChatRequest struct {
 }
 
 // ── POST /api/v1/streams/{id}/chat ───────────────────────────────────────────
-// Validates message, writes to Realtime DB under /chats/{streamId}/messages/
 
 func (h *handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 	streamID := mux.Vars(r)["id"]
 	uid, _ := middleware.UIDFromContext(r.Context())
 
-	// Parse request
 	var req SendChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Validate text
 	text := strings.TrimSpace(req.Text)
 	if text == "" {
 		jsonError(w, "message cannot be empty", http.StatusBadRequest)
@@ -74,11 +72,9 @@ func (h *handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get sender name from Firestore users collection
 	name := getSenderName(r.Context(), h.fs, uid)
 	role := h.getUserRole(r.Context(), uid)
 
-	// Build message
 	msg := ChatMessage{
 		UID:       uid,
 		Name:      name,
@@ -87,7 +83,6 @@ func (h *handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 		Role:      role,
 	}
 
-	// Write to Firebase Realtime Database
 	msgID, err := writeToRealtimeDB(r.Context(), streamID, msg)
 	if err != nil {
 		log.Printf("chat: realtime DB write failed streamId=%s: %v", streamID, err)
@@ -104,7 +99,6 @@ func (h *handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── GET /api/v1/streams/{id}/chat ────────────────────────────────────────────
-// Returns last 50 messages for initial load when user joins
 
 func (h *handler) getChatHistory(w http.ResponseWriter, r *http.Request) {
 	streamID := mux.Vars(r)["id"]
@@ -120,7 +114,6 @@ func (h *handler) getChatHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── DELETE /api/v1/streams/{id}/chat/{msgId} ─────────────────────────────────
-// Admin or message owner can delete a message
 
 func (h *handler) deleteChatMessage(w http.ResponseWriter, r *http.Request) {
 	streamID := mux.Vars(r)["id"]
@@ -142,14 +135,13 @@ func (h *handler) deleteChatMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── writeToRealtimeDB ─────────────────────────────────────────────────────────
-// POSTs to Firebase Realtime Database REST API.
-// Firebase generates a unique push ID — returns it as msgId.
 
 func writeToRealtimeDB(ctx context.Context, streamID string, msg ChatMessage) (string, error) {
 	dbURL := getRealtimeDBURL()
 	endpoint := fmt.Sprintf("%s/chats/%s/messages.json", dbURL, streamID)
 
-	authToken, err := getAuthToken(ctx)
+	// FIX: use firebase scope — required for Realtime DB REST API
+	authToken, err := getFirebaseToken(ctx)
 	if err != nil {
 		return "", fmt.Errorf("auth token: %w", err)
 	}
@@ -173,7 +165,6 @@ func writeToRealtimeDB(ctx context.Context, streamID string, msg ChatMessage) (s
 		return "", fmt.Errorf("realtime DB %d: %s", resp.StatusCode, string(b))
 	}
 
-	// Firebase returns {"name": "-NxABC123push_id"}
 	var result map[string]string
 	json.NewDecoder(resp.Body).Decode(&result)
 	msgID, ok := result["name"]
@@ -184,7 +175,6 @@ func writeToRealtimeDB(ctx context.Context, streamID string, msg ChatMessage) (s
 }
 
 // ── readChatHistory ───────────────────────────────────────────────────────────
-// GETs last N messages from Realtime DB ordered by timestamp.
 
 func readChatHistory(ctx context.Context, streamID string, limit int) ([]map[string]any, error) {
 	dbURL := getRealtimeDBURL()
@@ -193,7 +183,8 @@ func readChatHistory(ctx context.Context, streamID string, limit int) ([]map[str
 		dbURL, streamID, limit,
 	)
 
-	authToken, err := getAuthToken(ctx)
+	// FIX: use firebase scope
+	authToken, err := getFirebaseToken(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -207,19 +198,16 @@ func readChatHistory(ctx context.Context, streamID string, limit int) ([]map[str
 	}
 	defer resp.Body.Close()
 
-	// Realtime DB returns a map of pushId → message
 	var raw map[string]map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, err
 	}
 
-	// Convert to slice sorted by timestamp
 	messages := make([]map[string]any, 0, len(raw))
 	for msgID, msg := range raw {
 		msg["msgId"] = msgID
 		messages = append(messages, msg)
 	}
-
 	return messages, nil
 }
 
@@ -229,7 +217,8 @@ func deleteChatMsg(ctx context.Context, streamID, msgID string) error {
 	dbURL := getRealtimeDBURL()
 	endpoint := fmt.Sprintf("%s/chats/%s/messages/%s.json", dbURL, streamID, msgID)
 
-	authToken, err := getAuthToken(ctx)
+	// FIX: use firebase scope
+	authToken, err := getFirebaseToken(ctx)
 	if err != nil {
 		return err
 	}
@@ -248,7 +237,25 @@ func deleteChatMsg(ctx context.Context, streamID, msgID string) error {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func getRealtimeDBURL() string {
+	// FIX: Europe region URL — matches your Firebase project location
 	return "https://sports-stream-66553-default-rtdb.europe-west1.firebasedatabase.app"
+}
+
+// getFirebaseToken gets OAuth2 token with Firebase scope.
+// Required for Realtime DB REST API — cloud-platform scope returns 401.
+func getFirebaseToken(ctx context.Context) (string, error) {
+	ts, err := google.DefaultTokenSource(ctx,
+		"https://www.googleapis.com/auth/firebase",
+		"https://www.googleapis.com/auth/userinfo.email",
+	)
+	if err != nil {
+		return "", fmt.Errorf("firebase token source: %w", err)
+	}
+	tok, err := ts.Token()
+	if err != nil {
+		return "", fmt.Errorf("firebase get token: %w", err)
+	}
+	return tok.AccessToken, nil
 }
 
 func getSenderName(ctx context.Context, fs *firestore.Client, uid string) string {
