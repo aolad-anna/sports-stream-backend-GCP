@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="docker change">
+    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="chat added">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/stream/chat.go" beforeDir="false" afterPath="$PROJECT_DIR$/services/stream/chat.go" afterDir="false" />
     </list>
@@ -242,7 +242,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fix view count issue" />
     <MESSAGE value="count fix and rest" />
     <MESSAGE value="needed file" />
     <MESSAGE value="change getaway" />
@@ -267,7 +266,8 @@
     <MESSAGE value="minor fix" />
     <MESSAGE value="chat in player view" />
     <MESSAGE value="docker change" />
-    <option name="LAST_COMMIT_MESSAGE" value="docker change" />
+    <MESSAGE value="chat added" />
+    <option name="LAST_COMMIT_MESSAGE" value="chat added" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>

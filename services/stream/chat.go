@@ -1,10 +1,5 @@
 package main
 
-// ── Live Chat — Firebase Realtime Database ────────────────────────────────────
-// Messages stored at: /chats/{streamId}/messages/{msgId}
-// Android clients listen directly to Realtime DB — zero polling needed.
-// Backend validates message, writes to Realtime DB, returns msgId.
-
 import (
 	"bytes"
 	"context"
@@ -13,17 +8,16 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
 	"github.com/gorilla/mux"
-	"golang.org/x/oauth2/google"
 
 	"sports-stream-backend/pkg/middleware"
+	"sports-stream-backend/pkg/util"
 )
-
-// ── Models ────────────────────────────────────────────────────────────────────
 
 type ChatMessage struct {
 	UID       string `json:"uid"`
@@ -59,7 +53,6 @@ func (h *handler) sendChatMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check stream exists and is live
 	snap, err := h.fs.Collection("streams").Doc(streamID).Get(r.Context())
 	if err != nil {
 		jsonError(w, "stream not found", http.StatusNotFound)
@@ -134,17 +127,21 @@ func (h *handler) deleteChatMessage(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]any{"deleted": true, "msgId": msgID})
 }
 
-// ── writeToRealtimeDB ─────────────────────────────────────────────────────────
+// ── Realtime DB helpers ───────────────────────────────────────────────────────
+// Uses RTDB_SECRET env var — avoids OAuth2 scope issues entirely.
+// Get secret: Firebase Console → Project Settings → Service Accounts → Database Secrets
+
+func rtdbEndpoint(path string) string {
+	dbURL := util.Getenv("RTDB_URL", "https://sports-stream-66553-default-rtdb.europe-west1.firebasedatabase.app")
+	secret := os.Getenv("RTDB_SECRET")
+	if secret != "" {
+		return fmt.Sprintf("%s/%s.json?auth=%s", dbURL, path, secret)
+	}
+	return fmt.Sprintf("%s/%s.json", dbURL, path)
+}
 
 func writeToRealtimeDB(ctx context.Context, streamID string, msg ChatMessage) (string, error) {
-	dbURL := getRealtimeDBURL()
-	endpoint := fmt.Sprintf("%s/chats/%s/messages.json", dbURL, streamID)
-
-	// FIX: use firebase scope — required for Realtime DB REST API
-	authToken, err := getFirebaseToken(ctx)
-	if err != nil {
-		return "", fmt.Errorf("auth token: %w", err)
-	}
+	endpoint := rtdbEndpoint(fmt.Sprintf("chats/%s/messages", streamID))
 
 	body, _ := json.Marshal(msg)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
@@ -152,7 +149,6 @@ func writeToRealtimeDB(ctx context.Context, streamID string, msg ChatMessage) (s
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+authToken)
 
 	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
 	if err != nil {
@@ -174,24 +170,15 @@ func writeToRealtimeDB(ctx context.Context, streamID string, msg ChatMessage) (s
 	return msgID, nil
 }
 
-// ── readChatHistory ───────────────────────────────────────────────────────────
-
 func readChatHistory(ctx context.Context, streamID string, limit int) ([]map[string]any, error) {
-	dbURL := getRealtimeDBURL()
+	dbURL := util.Getenv("RTDB_URL", "https://sports-stream-66553-default-rtdb.europe-west1.firebasedatabase.app")
+	secret := os.Getenv("RTDB_SECRET")
 	endpoint := fmt.Sprintf(
-		"%s/chats/%s/messages.json?orderBy=\"timestamp\"&limitToLast=%d",
-		dbURL, streamID, limit,
+		"%s/chats/%s/messages.json?orderBy=\"timestamp\"&limitToLast=%d&auth=%s",
+		dbURL, streamID, limit, secret,
 	)
 
-	// FIX: use firebase scope
-	authToken, err := getFirebaseToken(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	req.Header.Set("Authorization", "Bearer "+authToken)
-
 	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
 	if err != nil {
 		return nil, err
@@ -211,51 +198,15 @@ func readChatHistory(ctx context.Context, streamID string, limit int) ([]map[str
 	return messages, nil
 }
 
-// ── deleteChatMsg ─────────────────────────────────────────────────────────────
-
 func deleteChatMsg(ctx context.Context, streamID, msgID string) error {
-	dbURL := getRealtimeDBURL()
-	endpoint := fmt.Sprintf("%s/chats/%s/messages/%s.json", dbURL, streamID, msgID)
-
-	// FIX: use firebase scope
-	authToken, err := getFirebaseToken(ctx)
-	if err != nil {
-		return err
-	}
-
+	endpoint := rtdbEndpoint(fmt.Sprintf("chats/%s/messages/%s", streamID, msgID))
 	req, _ := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
-	req.Header.Set("Authorization", "Bearer "+authToken)
-
 	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
 	if err != nil {
 		return err
 	}
 	resp.Body.Close()
 	return nil
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-func getRealtimeDBURL() string {
-	// FIX: Europe region URL — matches your Firebase project location
-	return "https://sports-stream-66553-default-rtdb.europe-west1.firebasedatabase.app"
-}
-
-// getFirebaseToken gets OAuth2 token with Firebase scope.
-// Required for Realtime DB REST API — cloud-platform scope returns 401.
-func getFirebaseToken(ctx context.Context) (string, error) {
-	ts, err := google.DefaultTokenSource(ctx,
-		"https://www.googleapis.com/auth/firebase",
-		"https://www.googleapis.com/auth/userinfo.email",
-	)
-	if err != nil {
-		return "", fmt.Errorf("firebase token source: %w", err)
-	}
-	tok, err := ts.Token()
-	if err != nil {
-		return "", fmt.Errorf("firebase get token: %w", err)
-	}
-	return tok.AccessToken, nil
 }
 
 func getSenderName(ctx context.Context, fs *firestore.Client, uid string) string {
