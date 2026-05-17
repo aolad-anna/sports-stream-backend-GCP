@@ -4,9 +4,13 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="add log in chat">
+    <list default="true" id="91a5451b-89dd-4423-8960-34573223b79c" name="Changes" comment="chat added dashboard">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/public/dashboard.html" beforeDir="false" afterPath="$PROJECT_DIR$/public/dashboard.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/infra/terraform/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/infra/terraform/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/infra/terraform/main.tf" beforeDir="false" afterPath="$PROJECT_DIR$/infra/terraform/main.tf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/infra/terraform/outputs.tf" beforeDir="false" afterPath="$PROJECT_DIR$/infra/terraform/outputs.tf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/infra/terraform/terraform.tfvars.example" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/infra/terraform/variables.tf" beforeDir="false" afterPath="$PROJECT_DIR$/infra/terraform/variables.tf" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -48,39 +52,41 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;DefaultGoTemplateProperty&quot;: &quot;Go File&quot;,
-    &quot;Go Build.go build sports-stream-backend/services/analytics.executor&quot;: &quot;Run&quot;,
-    &quot;Go Build.go build sports-stream-backend/services/notification.executor&quot;: &quot;Run&quot;,
-    &quot;Go Build.go build sports-stream-backend/services/prescaler.executor&quot;: &quot;Run&quot;,
-    &quot;Go Build.go build sports-stream-backend/services/stream.executor&quot;: &quot;Run&quot;,
-    &quot;Go Build.go build sports-stream-backend/services/user.executor&quot;: &quot;Run&quot;,
-    &quot;Go Build.go build sports-stream-backend/services/video.executor&quot;: &quot;Run&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.GoLinterPluginOnboarding&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.GoLinterPluginStorageMigration&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.go.migrated.go.modules.settings&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.go.modules.go.list.on.any.changes.was.set&quot;: &quot;true&quot;,
-    &quot;SHELLCHECK.PATH&quot;: &quot;C:\\Users\\ASUS\\AppData\\Roaming\\JetBrains\\GoLand2025.2\\plugins\\Shell Script\\shellcheck.exe&quot;,
-    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
-    &quot;deletionFromPopupRequiresConfirmation&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;go.import.settings.migrated&quot;: &quot;true&quot;,
-    &quot;go.sdk.automatically.set&quot;: &quot;true&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;E:/demo project CC/sports-stream-backend&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;run.configurations.included.in.services&quot;: &quot;true&quot;,
-    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "DefaultGoTemplateProperty": "Go File",
+    "Go Build.go build sports-stream-backend/services/analytics.executor": "Run",
+    "Go Build.go build sports-stream-backend/services/notification.executor": "Run",
+    "Go Build.go build sports-stream-backend/services/prescaler.executor": "Run",
+    "Go Build.go build sports-stream-backend/services/stream.executor": "Run",
+    "Go Build.go build sports-stream-backend/services/user.executor": "Run",
+    "Go Build.go build sports-stream-backend/services/video.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.GoLinterPluginOnboarding": "true",
+    "RunOnceActivity.GoLinterPluginStorageMigration": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.go.formatter.settings.were.checked": "true",
+    "RunOnceActivity.go.migrated.go.modules.settings": "true",
+    "RunOnceActivity.go.modules.go.list.on.any.changes.was.set": "true",
+    "SHELLCHECK.PATH": "C:\\Users\\ASUS\\AppData\\Roaming\\JetBrains\\GoLand2025.2\\plugins\\Shell Script\\shellcheck.exe",
+    "Terraform.Init terraform.executor": "Run",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "deletionFromPopupRequiresConfirmation": "false",
+    "git-widget-placeholder": "master",
+    "go.import.settings.migrated": "true",
+    "go.sdk.automatically.set": "true",
+    "junie.onboarding.icon.badge.shown": "true",
+    "last_opened_file_path": "E:/demo project CC/sports-stream-backend",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "run.configurations.included.in.services": "true",
+    "settings.editor.selected.configurable": "reference.settings.dialog.project.terraform",
+    "to.speed.mode.migration.done": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="E:\demo project CC\sports-stream-backend" />
@@ -108,7 +114,7 @@
       </map>
     </option>
   </component>
-  <component name="RunManager" selected="Go Build.go build sports-stream-backend/services/stream">
+  <component name="RunManager" selected="Terraform.Init terraform">
     <configuration name="go build sports-stream-backend/services/analytics" type="GoApplicationRunConfiguration" factoryName="Go Application" nameIsGenerated="true">
       <module name="sports-stream-backend" />
       <working_directory value="$PROJECT_DIR$" />
@@ -212,13 +218,40 @@
       <filePath value="$PROJECT_DIR$" />
       <method v="2" />
     </configuration>
+    <configuration name="Init terraform" type="TerraformConfigurationType" factoryName="Terraform init" temporary="true" show_console_on_std_err="false" show_console_on_std_out="false">
+      <option name="allowRunningInParallel" value="false" />
+      <option name="commandType" value="INIT" />
+      <option name="envFilePaths">
+        <list />
+      </option>
+      <option name="envs">
+        <map />
+      </option>
+      <option name="globalOptions" value="" />
+      <option name="passGlobalOptions" value="false" />
+      <option name="passParentEnvs" value="true" />
+      <option name="programArguments" value="" />
+      <option name="programParameters" value="init" />
+      <option name="projectPathOnTarget" />
+      <option name="selectedOptions">
+        <list />
+      </option>
+      <option name="workingDirectory" value="E:\demo project CC\sports-stream-backend\infra\terraform" />
+      <method v="2" />
+    </configuration>
     <list>
       <item itemvalue="Go Build.go build sports-stream-backend/services/analytics" />
       <item itemvalue="Go Build.go build sports-stream-backend/services/notification" />
       <item itemvalue="Go Build.go build sports-stream-backend/services/stream" />
       <item itemvalue="Go Build.go build sports-stream-backend/services/user" />
       <item itemvalue="Go Build.go build sports-stream-backend/services/video" />
+      <item itemvalue="Terraform.Init terraform" />
     </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Terraform.Init terraform" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
@@ -242,7 +275,6 @@
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="needed file" />
     <MESSAGE value="change getaway" />
     <MESSAGE value="change" />
     <MESSAGE value="add workflow secrets" />
@@ -267,7 +299,8 @@
     <MESSAGE value="docker change" />
     <MESSAGE value="chat added" />
     <MESSAGE value="add log in chat" />
-    <option name="LAST_COMMIT_MESSAGE" value="add log in chat" />
+    <MESSAGE value="chat added dashboard" />
+    <option name="LAST_COMMIT_MESSAGE" value="chat added dashboard" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
