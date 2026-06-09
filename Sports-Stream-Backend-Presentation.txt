@@ -1,0 +1,152 @@
+================================================================================
+ SPORTS STREAM BACKEND — PROJECT OVERVIEW & MECHANISMS
+ University Presentation — June 2026
+================================================================================
+
+PROJECT SUMMARY
+---------------
+Sports Stream Backend is a cloud-native, microservices-based live sports
+streaming platform built in Go, hosted on Google Cloud Platform (GCP). It
+provides real-time video streaming, viewer tracking, push notifications,
+analytics, and an admin dashboard — all accessible via a single API gateway.
+
+--------------------------------------------------------------------------------
+ARCHITECTURE — MICROSERVICES
+--------------------------------------------------------------------------------
+The system is split into 6 independent services, each running on its own port
+and deployed as a separate binary (or Cloud Run container):
+
+  1. Gateway       (port 8080) — single entry point; routes all traffic
+  2. User Service  (port 8081) — authentication & user profiles
+  3. Stream Service(port 8082) — stream lifecycle & viewer management
+  4. Notification  (port 8083) — Firebase Cloud Messaging (FCM) push alerts
+  5. Admin Service (port 8084) — admin dashboard, user/stream management
+  6. Analytics     (port 8085) — real-time viewer stats via event streaming
+
+Each service is independently deployable, health-checked, and connects to
+shared GCP infrastructure (Firestore, Pub/Sub, Firebase Auth).
+
+--------------------------------------------------------------------------------
+KEY MECHANISMS
+--------------------------------------------------------------------------------
+
+1. API GATEWAY (gateway/main.go)
+   - Single Go HTTP server that acts as a reverse proxy.
+   - Reads all requests, matches URL path prefixes, and forwards to the
+     correct internal service using Go's httputil.ReverseProxy.
+   - Injects a unique X-Request-Id header for distributed tracing.
+   - Exposes /health endpoint that polls all 5 services and renders a live
+     HTML dashboard (or JSON for API clients).
+   - Serves a landing page showing live matches without requiring login.
+
+2. AUTHENTICATION (pkg/middleware/auth.go + services/user)
+   - Firebase Authentication is the identity provider. Users sign in via the
+     Android app (email/password or Google Sign-In) and receive a JWT.
+   - The Android app sends the JWT as a Bearer token in Authorization header.
+   - POST /api/v1/auth/verify: backend verifies the JWT via Firebase Admin SDK,
+     extracts uid/email/displayName, and upserts a user profile in Firestore.
+   - New users are assigned role: "viewer" by default.
+   - Roles: viewer | broadcaster | admin — stored in Firestore users/{uid}.
+   - Protected routes use AuthRequired middleware that extracts & verifies the
+     JWT on every request, blocking invalid or expired tokens.
+
+3. STREAM LIFECYCLE (services/stream/main.go)
+   - Only broadcasters/admins can create a stream (POST /api/v1/streams).
+   - Stream document stored in Firestore: id, title, status, hlsUrl,
+     viewerCount, broadcasterUid, createdAt, updatedAt.
+   - On creation, two goroutines start concurrently:
+       a) GCP Cloud Transcoder job is submitted — converts RTMP input to HLS
+          (HTTP Live Streaming) at 3 quality levels: 720p, 480p, 360p.
+          The HLS manifest URL (index.m3u8) is written to Firestore immediately
+          so the Android ExoPlayer can begin retrying while encoding proceeds.
+       b) A Pub/Sub stream_started event is published for the analytics service.
+   - Transcoder polls every 5s (up to 10 min) for job completion. On finish,
+     stream status is set to "ended", viewer count reset to 0, and a
+     stream_ended Pub/Sub event published.
+
+4. VIEWER TRACKING — DISTRIBUTED IDEMPOTENCY (services/stream/main.go)
+   - Problem: multiple Cloud Run instances could double-count joins/leaves.
+   - Solution: Firestore subcollection streams/{id}/viewers/{uid} acts as a
+     presence registry.
+   - POST /streams/{id}/join: runs a Firestore transaction —
+       * Checks the stream is still live (rejects if ended).
+       * Checks viewers/{uid} exists — if yes, returns current count unchanged
+         (idempotent, no double-increment).
+       * If new viewer: creates viewers/{uid} doc, increments viewerCount.
+   - POST /streams/{id}/leave: transaction checks presence first — only
+     decrements if uid exists in subcollection; floors at 0 (never negative).
+   - After join/leave, a Pub/Sub viewer_join/viewer_leave event is published
+     to the analytics service asynchronously.
+
+5. ANALYTICS SERVICE (services/analytics/main.go)
+   - Event-driven: listens to two GCP Pub/Sub subscriptions in background
+     goroutines: viewer-events-analytics-sub and stream-events-analytics-sub.
+   - For each viewer event (join/leave):
+       * Runs a Firestore transaction to update analytics/{streamId}:
+         currentViewers, peakViewers, totalJoins.
+       * Writes/updates analytics/{streamId}/viewerHistory/{uid} to record
+         each viewer's join time, leave time, and join count.
+       * Deduplication: processedEvents subcollection stores event IDs — if
+         an event was already processed, the transaction skips it.
+         Event IDs use SHA-256 fingerprint if not provided.
+   - For stream events: initialises or resets the analytics document.
+   - HTTP API: GET /api/v1/analytics/stream/{id} returns live stats.
+              GET /api/v1/analytics/stream/{id}/viewers returns full history.
+
+6. PUSH NOTIFICATIONS (services/notification/main.go)
+   - Subscribes to stream_events Pub/Sub topic.
+   - On stream_started: sends FCM push notification to the "live_sports" topic.
+   - Android clients subscribed to the topic receive a high-priority push with
+     streamId and click_action: "OPEN_PLAYER" to deep-link directly to the
+     stream.
+   - Also exposes POST /api/v1/notifications/test for manual testing.
+
+7. ADMIN SERVICE (services/admin/main.go)
+   - Cookie-based session login (HMAC-SHA256 signed, configurable secure flag).
+   - Dashboard: DashboardStats — total users, broadcasters, live streams,
+     current viewers, total joins across all streams.
+   - Manage users (list, change role), manage streams (list, end, delete),
+     manage matches (schedule upcoming matches).
+   - Serves the admin panel HTML at /admin (static frontend embedded in binary).
+
+--------------------------------------------------------------------------------
+DATA STORAGE — FIRESTORE COLLECTIONS
+--------------------------------------------------------------------------------
+  users/{uid}                         — user profiles & roles
+  streams/{id}                        — stream documents
+  streams/{id}/viewers/{uid}          — viewer presence (join/leave tracking)
+  analytics/{streamId}                — per-stream viewer stats
+  analytics/{streamId}/processedEvents/{eventId} — deduplication log
+  analytics/{streamId}/viewerHistory/{uid}        — per-viewer watch history
+  matches/{id}                        — scheduled match metadata
+
+--------------------------------------------------------------------------------
+INFRASTRUCTURE & DEPLOYMENT
+--------------------------------------------------------------------------------
+  - Language:       Go 1.21+
+  - Database:       Google Cloud Firestore (NoSQL, real-time)
+  - Messaging:      Google Cloud Pub/Sub (async event bus)
+  - Auth:           Firebase Authentication (JWT-based)
+  - Video Encoding: GCP Cloud Transcoder API (managed HLS encoding)
+  - Video Delivery: Google Cloud Storage (HLS segments) + CDN
+  - Push Alerts:    Firebase Cloud Messaging (FCM)
+  - Containers:     Docker / Docker Compose (local dev), Cloud Run (prod)
+  - IaC:            Terraform (infra/terraform/) for GCP resource provisioning
+  - K8s:            Kubernetes manifests + HPA for auto-scaling (k8s/)
+  - CI/CD:          Google Cloud Build (cloudbuild.yaml)
+  - Frontend Host:  Firebase Hosting (admin panel)
+  - Load Testing:   k6 (k6-load-test.js)
+
+--------------------------------------------------------------------------------
+SECURITY HIGHLIGHTS
+--------------------------------------------------------------------------------
+  - All user-facing routes behind Firebase JWT verification.
+  - Role-based access control (viewer / broadcaster / admin) enforced server-side.
+  - Admin panel protected by HMAC-signed session cookies.
+  - Firestore Security Rules (firestore.rules) restrict client-side access.
+  - Request IDs on every request for audit tracing.
+  - Event deduplication via Firestore transactions prevents double-processing.
+
+================================================================================
+ END OF DOCUMENT
+================================================================================

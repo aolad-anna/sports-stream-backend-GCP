@@ -78,6 +78,8 @@ type handler struct {
 	panelPassword string
 	sessionSecret string
 	cookieSecure  bool
+	firebaseReady bool
+	startupIssue  string
 }
 
 func parseLimit(raw string, fallback int) int {
@@ -162,6 +164,9 @@ func extractBearer(r *http.Request) string {
 }
 
 func (h *handler) isFirebaseAdmin(r *http.Request) bool {
+	if !h.firebaseReady {
+		return false
+	}
 	token := extractBearer(r)
 	if token == "" {
 		return false
@@ -175,6 +180,14 @@ func (h *handler) isFirebaseAdmin(r *http.Request) bool {
 
 func (h *handler) adminAuthRequired(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if h.fs == nil {
+			msg := "admin datastore unavailable"
+			if h.startupIssue != "" {
+				msg = msg + ": " + h.startupIssue
+			}
+			jsonError(w, msg, http.StatusServiceUnavailable)
+			return
+		}
 		if !h.isSessionAuthenticated(r) && !h.isFirebaseAdmin(r) {
 			jsonError(w, "admin access required", http.StatusUnauthorized)
 			return
@@ -1048,8 +1061,12 @@ func main() {
 		log.Println("admin: ADMIN_PANEL_SESSION_SECRET missing or too short; using fallback startup secret")
 	}
 
+	firebaseReady := true
+	startupIssue := ""
 	if _, err := fbclient.InitClient(ctx, creds); err != nil {
-		log.Fatalf("admin: firebase init: %v", err)
+		firebaseReady = false
+		startupIssue = fmt.Sprintf("firebase init failed: %v", err)
+		log.Printf("admin: %s", startupIssue)
 	}
 
 	var fsOpts []option.ClientOption
@@ -1062,18 +1079,44 @@ func main() {
 	}
 	fs, err := firestore.NewClient(ctx, projectID, fsOpts...)
 	if err != nil {
-		log.Fatalf("admin: firestore init: %v", err)
+		if startupIssue != "" {
+			startupIssue = startupIssue + "; "
+		}
+		startupIssue = startupIssue + fmt.Sprintf("firestore init failed: %v", err)
+		log.Printf("admin: firestore init failed; service will start in degraded mode: %v", err)
+		fs = nil
+	} else {
+		defer fs.Close()
 	}
-	defer fs.Close()
 
-	h := &handler{fs: fs, panelUser: panelUser, panelPassword: panelPassword, sessionSecret: sessionSecret, cookieSecure: envMode == "production"}
+	h := &handler{
+		fs:            fs,
+		panelUser:     panelUser,
+		panelPassword: panelPassword,
+		sessionSecret: sessionSecret,
+		cookieSecure:  envMode == "production",
+		firebaseReady: firebaseReady,
+		startupIssue:  startupIssue,
+	}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+		if h.fs == nil {
+			msg := "health check failed: firestore client unavailable"
+			if h.startupIssue != "" {
+				msg = msg + "; " + h.startupIssue
+			}
+			jsonError(w, msg, http.StatusServiceUnavailable)
+			return
+		}
 		healthCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		if _, err := fs.Collection("users").Limit(1).Documents(healthCtx).Next(); err != nil && err != iterator.Done {
+		if _, err := h.fs.Collection("users").Limit(1).Documents(healthCtx).Next(); err != nil && err != iterator.Done {
 			jsonError(w, "health check failed: firestore unreachable", http.StatusServiceUnavailable)
+			return
+		}
+		if !h.firebaseReady {
+			jsonError(w, "health check failed: firebase auth unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		jsonOK(w, map[string]string{"service": "admin-service", "status": "ok"})
