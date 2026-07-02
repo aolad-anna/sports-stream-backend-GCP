@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "sports-stream-66553"
-  }
+  },
+  "targets": {
+    "sports-stream-66553": {
+      "hosting": {
+        "live": [
+          "sports-stream-66553"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
