@@ -21,10 +21,10 @@ output "cloud_run_url" {
   value       = google_cloud_run_v2_service.backend.uri
 }
 
-output "gcs_bucket" {
-  description = "GCS media bucket name"
-  value       = google_storage_bucket.media.name
-}
+# output "gcs_bucket" {
+#   description = "GCS media bucket name"
+#   value       = google_storage_bucket.media.name
+# }
 
 output "artifact_registry" {
   description = "Artifact Registry repository URL"
@@ -36,10 +36,10 @@ output "firestore_database" {
   value       = google_firestore_database.default.name
 }
 
-output "cdn_ip" {
-  description = "Global CDN IP address for media"
-  value       = google_compute_global_address.media.address
-}
+# output "cdn_ip" {
+#   description = "Global CDN IP address for media"
+#   value       = google_compute_global_address.media.address
+# }
 
 output "monitoring_uptime_check" {
   description = "Uptime check display name"

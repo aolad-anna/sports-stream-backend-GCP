@@ -1,8 +1,3 @@
-# ═══════════════════════════════════════════════════════════════════════════════
-# Sports Stream — Infrastructure as Code (CCC'26)
-# Manages: Pub/Sub, Cloud Run, GCS, Firestore, Firebase RTDB rules, IAM
-# ═══════════════════════════════════════════════════════════════════════════════
-
 terraform {
   required_version = ">= 1.5.0"
 
@@ -100,40 +95,40 @@ resource "google_pubsub_subscription" "notification_stream_events" {
   message_retention_duration = "86400s"
 }
 
-# ── GCS Bucket (videos, HLS segments, uploads) ────────────────────────────────
-
-resource "google_storage_bucket" "media" {
-  name                        = var.gcs_bucket_name
-  location                    = var.gcs_location
-  force_destroy               = false
-  uniform_bucket_level_access = true
-
-  cors {
-    origin          = ["*"]
-    method          = ["GET", "HEAD"]
-    response_header = ["Content-Type"]
-    max_age_seconds = 3600
-  }
-
-  lifecycle_rule {
-    condition {
-      age                = 7
-      matches_prefix     = ["uploads/"]
-    }
-    action {
-      type = "Delete"
-    }
-  }
-
-  depends_on = [google_project_service.apis]
-}
+# # ── GCS Bucket (videos, HLS segments, uploads) ────────────────────────────────
+#
+# resource "google_storage_bucket" "media" {
+#   name                        = var.gcs_bucket_name
+#   location                    = var.gcs_location
+#   force_destroy               = false
+#   uniform_bucket_level_access = true
+#
+#   cors {
+#     origin          = ["*"]
+#     method          = ["GET", "HEAD"]
+#     response_header = ["Content-Type"]
+#     max_age_seconds = 3600
+#   }
+#
+#   lifecycle_rule {
+#     condition {
+#       age                = 7
+#       matches_prefix     = ["uploads/"]
+#     }
+#     action {
+#       type = "Delete"
+#     }
+#   }
+#
+#   depends_on = [google_project_service.apis]
+# }
 
 # Make HLS and video content publicly readable
-resource "google_storage_bucket_iam_member" "public_read" {
-  bucket = google_storage_bucket.media.name
-  role   = "roles/storage.objectViewer"
-  member = "allUsers"
-}
+# resource "google_storage_bucket_iam_member" "public_read" {
+#   bucket = google_storage_bucket.media.name
+#   role   = "roles/storage.objectViewer"
+#   member = "allUsers"
+# }
 
 # ── Artifact Registry (Docker images) ────────────────────────────────────────
 
@@ -273,7 +268,7 @@ locals {
 resource "google_project_iam_member" "compute_sa_roles" {
   for_each = toset([
     "roles/firebasedatabase.admin",
-    "roles/firestore.admin",
+    # "roles/firestore.admin",
     "roles/pubsub.publisher",
     "roles/pubsub.subscriber",
     "roles/storage.admin",
@@ -493,46 +488,46 @@ resource "google_compute_security_policy" "backend" {
 
 # ── Cloud CDN + Load Balancer for GCS ────────────────────────────────────────
 
-resource "google_compute_backend_bucket" "media_cdn" {
-  name        = "sports-stream-media-cdn"
-  bucket_name = google_storage_bucket.media.name
-  enable_cdn  = true
+# resource "google_compute_backend_bucket" "media_cdn" {
+#   name        = "sports-stream-media-cdn"
+#   bucket_name = google_storage_bucket.media.name
+#   enable_cdn  = true
 
-  cdn_policy {
-    cache_mode        = "CACHE_ALL_STATIC"
-    default_ttl       = 3600
-    max_ttl           = 86400
-    client_ttl        = 3600
-    negative_caching  = true
-  }
-}
+#   cdn_policy {
+#     cache_mode        = "CACHE_ALL_STATIC"
+#     default_ttl       = 3600
+#     max_ttl           = 86400
+#     client_ttl        = 3600
+#     negative_caching  = true
+#   }
+# }
 
-resource "google_compute_url_map" "media" {
-  name            = "sports-stream-media-lb"
-  default_service = google_compute_backend_bucket.media_cdn.id
-}
+# resource "google_compute_url_map" "media" {
+#   name            = "sports-stream-media-lb"
+#   default_service = google_compute_backend_bucket.media_cdn.id
+# }
 
-resource "google_compute_target_https_proxy" "media" {
-  name             = "sports-stream-media-proxy"
-  url_map          = google_compute_url_map.media.id
-  ssl_certificates = [google_compute_managed_ssl_certificate.media.id]
-}
+# resource "google_compute_target_https_proxy" "media" {
+#   name             = "sports-stream-media-proxy"
+#   url_map          = google_compute_url_map.media.id
+#   ssl_certificates = [google_compute_managed_ssl_certificate.media.id]
+# }
 
-resource "google_compute_managed_ssl_certificate" "media" {
-  provider = google-beta
-  name     = "sports-stream-media-cert"
-  managed {
-    domains = [var.cdn_domain]
-  }
-}
-
-resource "google_compute_global_forwarding_rule" "media" {
-  name       = "sports-stream-media-lb"
-  target     = google_compute_target_https_proxy.media.id
-  port_range = "443"
-  ip_address = google_compute_global_address.media.address
-}
-
-resource "google_compute_global_address" "media" {
-  name = "sports-stream-media-ip"
-}
+# resource "google_compute_managed_ssl_certificate" "media" {
+#   provider = google-beta
+#   name     = "sports-stream-media-cert"
+#   managed {
+#     domains = [var.cdn_domain]
+#   }
+# }
+#
+# resource "google_compute_global_forwarding_rule" "media" {
+#   name       = "sports-stream-media-lb"
+#   target     = google_compute_target_https_proxy.media.id
+#   port_range = "443"
+#   ip_address = google_compute_global_address.media.address
+# }
+#
+# resource "google_compute_global_address" "media" {
+#   name = "sports-stream-media-ip"
+# }
